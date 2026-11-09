@@ -30,6 +30,10 @@ globals = {
 	"BINDING_HEADER_TOTEMICACCORD",
 }
 
+-- Globals our vendored libraries provide rather than WoW, so they never appear in
+-- Blizzard's source and have to be named here.
+local vendored = { "LibStub" }
+
 -- The generated Forever API surface.
 local generated = {}
 local ok, api = pcall(dofile, "tools/wow_globals.lua")
@@ -66,6 +70,10 @@ else
 		"format", "gsub", "strupper", "strlower", "max", "min", "floor", "ceil",
 		"abs", "mod", "sort", "bit", "Mixin", "CreateFromMixins", "securecall",
 	}
+end
+
+for _, name in ipairs(vendored) do
+	generated[#generated + 1] = name
 end
 
 read_globals = generated

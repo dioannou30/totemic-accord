@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Totemic Accord
+## Notes: Themed shaman totem bar with profiles that switch automatically by spec and situation.
+## Author: Dio
+## Version: 0.1.0
+## SavedVariables: TotemicAccordDB
+## SavedVariablesPerCharacter: TotemicAccordCharDB
+## X-Category: Action Bars
+## X-License: All Rights Reserved
+
+# Interface 16001 is the expected value for Forever 1.60.1 (build 70862), which matches
+# the pinned reference and the installed client. VERIFY in game with:
+#     /dump select(4, GetBuildInfo())
+# The Title and Version above are the single source of truth for both -- Core.lua reads
+# them back with C_AddOns.GetAddOnMetadata rather than duplicating the strings.
+
+Libs\embeds.xml
+
+Locales\enUS.lua
+
+Core.lua
+SelfTest.lua

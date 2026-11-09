@@ -3,7 +3,8 @@
 A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
 16001), with profiles that switch **automatically by spec and situation**.
 
-> Status: **M0 (setup) complete.** The addon itself does not exist yet — no TOC, no Lua.
+> Status: **M1 (skeleton) built, awaiting in-game verification.** It loads, gates on class,
+> creates saved variables and answers `/ta` and `/ta selftest`. No bar yet.
 > See `docs/CLAUDE_CODE_PROMPT.md` for the full spec and `docs/decisions.md` for the log.
 
 Other Forever totem bars exist; none of them switches totem sets automatically by
@@ -68,6 +69,16 @@ Three checks, in order:
 1. **`luac5.1 -p`** — syntax, against the same Lua version WoW runs.
 2. **`tools/check_api.py`** — every API we call actually exists on Forever.
 3. **`luacheck`** — accidental globals, unused locals, undefined API.
+
+There is also an offline smoke test that stubs the WoW API and drives the addon in plain
+Lua 5.1 — lifecycle hooks, every slash command, the self-test, and the non-Shaman path:
+
+```bash
+lua5.1 tools/smoke.lua
+```
+
+It proves the code runs without launching the game. It is not a substitute for
+`docs/testing.md`, and it is deliberately not part of `tools/check`.
 
 The API surface is not hardcoded anywhere. `check_api.py` extracts it from Blizzard's own
 UI source and writes `tools/wow_globals.lua`, which `.luacheckrc` loads — so one source of

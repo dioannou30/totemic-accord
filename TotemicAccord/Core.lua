@@ -1,0 +1,185 @@
+--[[
+	Core.lua -- addon object, lifecycle, saved variables, slash commands, logging.
+
+	WoW calls every addon Lua file with (addonFolderName, privateTable), so ADDON below
+	is the folder name and ns is a table shared by all our files. That makes the folder
+	the single source of truth for the name; the display name and version are read back
+	out of the TOC with C_AddOns.GetAddOnMetadata rather than duplicated here.
+]]
+
+local ADDON, ns = ...
+local L = ns.L
+
+local AceAddon = LibStub("AceAddon-3.0")
+local AceDB = LibStub("AceDB-3.0")
+
+-- AceAddon mixes in the AceConsole and AceEvent methods we ask for here.
+local addon = AceAddon:NewAddon(ADDON, "AceConsole-3.0", "AceEvent-3.0")
+ns.addon = addon
+
+-- Exposed as a global purely so it can be poked at in game (/dump TotemicAccord).
+-- Declared in .luacheckrc and tools/check_api.py as one of our few allowed globals.
+_G[ADDON] = addon
+
+-- ---------------------------------------------------------------- identity
+
+addon.ADDON_NAME = ADDON
+addon.DISPLAY_NAME = C_AddOns.GetAddOnMetadata(ADDON, "Title") or ADDON
+addon.VERSION = C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.0.0"
+
+-- ---------------------------------------------------------------- saved variables
+--[[
+	Two saved-variable tables, as the build prompt specifies:
+	  TotemicAccordCharDB  per character -- profiles, sequences, captured bar, settings
+	  TotemicAccordDB      account-wide  -- things worth sharing across characters
+
+	A note on shape: AceDB always nests data under a scope key, so the per-character
+	data lives at TotemicAccordCharDB.global rather than at the top level as sketched
+	in the build prompt. "global" is AceDB's name for "unscoped", and since the file
+	itself is already per-character that is exactly this character's data. We take
+	AceDB's defaults and migration machinery in exchange for one level of nesting.
+
+	AceDB's own "profile" concept is deliberately unused -- our profiles are totem sets
+	keyed by spec and situation, and overloading the word would be a trap later.
+]]
+
+local CHAR_DEFAULTS = {
+	global = {
+		version = 1,
+		profiles = {},   -- ["<spec>:<situation>"] = { earth=, fire=, water=, air= }
+		sequences = {},  -- ["<profile key>"]      = { order=, include=, reset... }
+		captured = {},   -- snapshot of the native Call of the Elements page
+		manual = nil,    -- a profile key while manually pinned, else nil
+		settings = {
+			theme = "emerald",
+			buttonStyle = "initials",
+			layout = "horizontal",
+			flyoutDir = "up",
+			emptySlot = "grey",
+			actionMode = "auto",
+			scale = 1,
+			locked = false,
+			point = nil,
+			showSwitchMessage = true,
+			debug = false,
+			minimap = { hide = false },
+		},
+	},
+}
+
+local ACCOUNT_DEFAULTS = {
+	global = {
+		version = 1,
+	},
+}
+
+-- ---------------------------------------------------------------- logging
+
+local PREFIX = "|cff0cd29d" .. L.CHAT_PREFIX .. "|r "
+
+function addon:Log(fmt, ...)
+	local msg = select("#", ...) > 0 and fmt:format(...) or fmt
+	print(PREFIX .. msg)
+end
+
+--- Verbose logging, off unless /ta debug turned it on.
+function addon:Debug(fmt, ...)
+	if not (self.db and self.db.global.settings.debug) then
+		return
+	end
+	local msg = select("#", ...) > 0 and fmt:format(...) or fmt
+	print(PREFIX .. "|cff8a929c" .. msg .. "|r")
+end
+
+-- ---------------------------------------------------------------- lifecycle
+
+function addon:OnInitialize()
+	-- Shaman-only, and quiet about it on other characters: no bar, no spam, no events.
+	-- SetEnabledState(false) means OnEnable never runs, so nothing else has to re-check.
+	local _, class = UnitClass("player")
+	self.playerClass = class
+	if class ~= "SHAMAN" then
+		self:SetEnabledState(false)
+		self.disabledReason = "notShaman"
+		-- Quiet means no unsolicited output, not stonewalling: /ta still answers,
+		-- so a non-Shaman who types it learns why nothing is happening.
+		self:RegisterChatCommand("ta", "OnSlashCommandDisabled")
+		self:RegisterChatCommand("totemicaccord", "OnSlashCommandDisabled")
+		return
+	end
+
+	self.charDB = AceDB:New("TotemicAccordCharDB", CHAR_DEFAULTS)
+	self.accountDB = AceDB:New("TotemicAccordDB", ACCOUNT_DEFAULTS)
+	-- self.db is the per-character data: that is what almost everything wants.
+	self.db = self.charDB
+
+	self:RegisterChatCommand("ta", "OnSlashCommand")
+	self:RegisterChatCommand("totemicaccord", "OnSlashCommand")
+end
+
+function addon:OnEnable()
+	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
+		tostring(select(4, GetBuildInfo())))
+	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
+end
+
+-- ---------------------------------------------------------------- slash commands
+
+local function trim(s)
+	return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+--- Milestones that have not landed yet answer honestly rather than doing nothing.
+function addon:NotYet(milestone)
+	self:Log(L.SELFTEST_NOT_IMPLEMENTED, milestone)
+end
+
+function addon:PrintHelp()
+	self:Log(L.SLASH_HELP_HEADER)
+	for _, line in ipairs({
+		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
+	}) do
+		print("  " .. line)
+	end
+end
+
+--- The only command handler on a non-Shaman character. Deliberately touches no DB:
+--- OnInitialize returned before creating one.
+function addon:OnSlashCommandDisabled()
+	self:Log(L.NOT_SHAMAN)
+end
+
+function addon:OnSlashCommand(input)
+	input = trim(input or "")
+	local cmd, rest = input:match("^(%S*)%s*(.-)$")
+	cmd = (cmd or ""):lower()
+
+	if cmd == "" then
+		-- Options are M9; until then /ta is the help text rather than a dead key.
+		self:PrintHelp()
+	elseif cmd == "debug" then
+		local s = self.db.global.settings
+		s.debug = not s.debug
+		self:Log(s.debug and L.DEBUG_ON or L.DEBUG_OFF)
+	elseif cmd == "selftest" then
+		ns.SelfTest:Run()
+	elseif cmd == "help" then
+		self:PrintHelp()
+	elseif cmd == "lock" or cmd == "unlock" then
+		self:NotYet("M3")
+	elseif cmd == "auto" or cmd == "profile" then
+		self:NotYet("M5")
+	elseif cmd == "capture" then
+		self:NotYet("M8")
+	elseif cmd == "macro" then
+		self:NotYet("M7")
+	elseif cmd == "minimap" then
+		self:NotYet("M9")
+	else
+		self:Log(L.CMD_UNKNOWN, cmd)
+		self:PrintHelp()
+	end
+	-- `rest` is unused until the commands that take arguments land in M5.
+	self:Debug("slash: cmd=%q rest=%q", cmd, rest or "")
+end
