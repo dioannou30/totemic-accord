@@ -280,6 +280,11 @@ function StaticPopup_ShowCustomGenericConfirmation(data) scenario.popup = data e
 local registered = {}
 local addonObj
 
+-- The REAL serialisation libraries (pure Lua): import/export is tested end to end.
+-- Loaded before the fake LibStub exists, so they register standalone.
+local realLibSerialize = assert(loadfile(repo .. "/TotemicAccord/Libs/LibSerialize/LibSerialize.lua"))()
+local realLibDeflate = assert(loadfile(repo .. "/TotemicAccord/Libs/LibDeflate/LibDeflate.lua"))()
+
 LibStub = setmetatable({
 	GetLibrary = function(_, name, silent)
 		-- Pretend every library we vendor is present.
@@ -302,6 +307,7 @@ registered["AceAddon-3.0"] = {
 	NewAddon = function(_, name, ...)
 		local o = { name = name, _enabled = true }
 		function o:SetEnabledState(v) self._enabled = v end
+		function o:IsEnabled() return self._enabled end
 		function o:RegisterChatCommand(cmd, handler) self["_cmd_" .. cmd] = handler end
 		addonObj = o
 		return o
@@ -336,6 +342,28 @@ registered["AceEvent-3.0"] = {
 		return target
 	end,
 }
+
+registered["LibSerialize"] = realLibSerialize
+registered["LibDeflate"] = realLibDeflate
+
+-- M9: AceConfig, LibDataBroker and LibDBIcon record what they were asked to do.
+registered["AceConfig-3.0"] = { RegisterOptionsTable = function(_, name, fn) scenario.optionsApp, scenario.optionsFn = name, fn end }
+registered["AceConfigDialog-3.0"] = {
+	SetDefaultSize = function() end,
+	AddToBlizOptions = function(_, app, title) scenario.blizOptions = title end,
+	Open = function(_, app) scenario.optionsOpened = app end,
+}
+scenario.notified = 0
+registered["AceConfigRegistry-3.0"] = { NotifyChange = function() scenario.notified = scenario.notified + 1 end }
+registered["LibDataBroker-1.1"] = { NewDataObject = function(_, name, obj) scenario.broker = obj; return obj end }
+registered["LibDBIcon-1.0"] = {
+	Register = function(_, name, obj, db) scenario.dbicon = { name = name, obj = obj, db = db } end,
+	Show = function() scenario.iconShown = true end,
+	Hide = function() scenario.iconShown = false end,
+	IsRegistered = function() return scenario.dbicon ~= nil end,
+}
+function IsShiftKeyDown() return scenario.shift end
+AddonCompartmentFrame = { registeredAddons = { { text = "Totemic Accord" } } }
 
 registered["AceDB-3.0"] = {
 	New = function(_, _, defaults)
@@ -375,7 +403,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "Options.lua", "Minimap.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -1304,6 +1332,157 @@ step("automatic first-run capture never captures our own writes", function()
 	B:Refresh()
 end)
 
+realPrint("\nOptions, import/export, minimap (M9):")
+local function opts() return scenario.optionsFn() end
+local function opt(tab, key) return opts().args[tab].args[key] end
+step("/ta opens the options window; /ta help prints commands; listed in AddOns settings", function()
+	scenario.optionsOpened = nil
+	ns.addon:OnSlashCommand("")
+	assert(scenario.optionsOpened == "TotemicAccord", tostring(scenario.optionsOpened))
+	ns.addon:OnSlashCommand("help")
+	assert(lastLine():find("/ta"), lastLine())
+	assert(scenario.blizOptions == "Totemic Accord")
+end)
+step("every option's name, getter and value list runs without error", function()
+	local count = 0
+	local function walk(node)
+		for _, field in ipairs({ "name", "desc", "values", "get", "hidden", "disabled", "sorting" }) do
+			if type(node[field]) == "function" then node[field]({}) ; count = count + 1 end
+		end
+		for _, child in pairs(node.args or {}) do walk(child) end
+	end
+	walk(opts())
+	assert(count > 40, "only " .. count .. " functions walked")
+	local tabs = {}
+	for k in pairs(opts().args) do tabs[#tabs + 1] = k end
+	table.sort(tabs)
+	assert(table.concat(tabs, ",") == "appearance,importexport,profiles,sequence", table.concat(tabs, ","))
+end)
+step("Profiles tab edits any cell, creates it, and Remove makes it fall back", function()
+	ns.Options.editRow, ns.Options.editCol = "global", "bg"
+	opt("profiles", "el_earth").set({}, "Earthbind Totem")
+	assert(G.profiles["global:bg"] and G.profiles["global:bg"].earth.name == "Earthbind Totem")
+	assert(opt("profiles", "el_earth").get({}) == "Earthbind Totem")
+	assert(opts().args.profiles.args.matrix.name({}):find("Battleground"))
+	opt("profiles", "remove").func()
+	assert(G.profiles["global:bg"] == nil)
+end)
+step("Sequence tab: step selects swap so the order stays a permutation", function()
+	opt("sequence", "step1").set({}, "air")
+	local order = table.concat(ns.Sequence:Get(P.applied).order, ",")
+	assert(order == "air,fire,water,earth", order)
+	opt("sequence", "step1").set({}, "earth")
+	opt("sequence", "inc_water").set({}, false)
+	assert(not ns.Sequence:MacroText():find("Healing"))
+	opt("sequence", "inc_water").set({}, true)
+	opt("sequence", "resetSeconds").set({}, 0)
+	assert(ns.Sequence:Get(P.applied).resetSeconds == nil, "0 should mean off")
+end)
+step("Appearance: transparent background and vivid initials (Dio's requests)", function()
+	opt("appearance", "barOpacity").set({}, 0)
+	assert(B.frame.bg._color[4] == 0, "background not transparent")
+	opt("appearance", "barOpacity").set({}, 0.86)
+	local earth = btn("Earth")
+	local plain = { unpack(earth.bg._color) }
+	opt("appearance", "vividInitials").set({}, true)
+	assert(earth.bg._color[1] ~= plain[1] or earth.bg._color[2] ~= plain[2], "face not tinted")
+	opt("appearance", "vividInitials").set({}, false)
+	assert(earth.bg._color[1] == plain[1], "tint not removed")
+end)
+step("Appearance: action mode is validated and rewrites the Action button", function()
+	opt("appearance", "actionMode").set({}, "cote")
+	assert(btn("Action"):GetAttribute("macrotext"):find("/cast Call of the Elements"))
+	opt("appearance", "actionMode").set({}, "auto")
+	assert(not B:Set("actionMode", "bogus"))
+end)
+step("export -> import round-trips profiles, sequences and settings (real codecs)", function()
+	ns.addon:OnSlashCommand("save global:arena")
+	ns.addon:OnSlashCommand("seq seconds 30")
+	local text = ns.ImportExport:Export()
+	assert(text:sub(1, 4) == "TA1:" and #text > 20, text)
+	local before = { profiles = G.profiles, seconds = ns.Sequence:Get(P.applied).resetSeconds }
+	G.profiles, G.sequences = {}, {}
+	G.settings.theme = "latte"
+	scenario.popup = nil
+	assert(ns.ImportExport:BeginImport(text), ns.ImportExport.lastError)
+	assert(G.profiles.global == nil, "applied before confirming")
+	scenario.popup.callback()
+	assert(G.profiles["global:arena"] and G.profiles.global.earth.name == before.profiles.global.earth.name)
+	assert(ns.Sequence:Get("global").resetSeconds == 30, "sequence lost")
+	assert(G.settings.theme == "emerald", "settings not restored: " .. G.settings.theme)
+	ns.addon:OnSlashCommand("seq seconds off")
+	ns.addon:OnSlashCommand("delete global:arena")
+end)
+step("broken, foreign or tampered strings are rejected with a reason, nothing changed", function()
+	local snapshot = G.profiles
+	assert(not ns.ImportExport:BeginImport("hello"))
+	assert(ns.ImportExport.lastError:find("TA1:"), ns.ImportExport.lastError)
+	local good = ns.ImportExport:Export()
+	assert(not ns.ImportExport:BeginImport(good:sub(1, #good - 12)))
+	assert(ns.ImportExport.lastError:find("damaged"), ns.ImportExport.lastError)
+	local LS, LD = LibStub("LibSerialize"), LibStub("LibDeflate")
+	local evil = "TA1:" .. LD:EncodeForPrint(LD:CompressDeflate(LS:Serialize({ v = 1,
+		profiles = { global = { earth = { name = 42 } } } })))
+	assert(not ns.ImportExport:BeginImport(evil))
+	assert(ns.ImportExport.lastError:find("malformed"), ns.ImportExport.lastError)
+	assert(G.profiles == snapshot, "state changed by a failed import")
+end)
+step("loadout profiles are matched to the importer's loadouts by NAME", function()
+	local LS, LD = LibStub("LibSerialize"), LibStub("LibDeflate")
+	local payload = { v = 1, loadoutNames = { [7001] = "Resto", [7002] = "Elemental PvP" },
+		profiles = { ["L7001:dungeon"] = { earth = { spellID = 8071, name = "Stoneskin Totem" } },
+			["L7002:bg"] = { fire = { spellID = 3599, name = "Searing Totem" } } } }
+	local text = "TA1:" .. LD:EncodeForPrint(LD:CompressDeflate(LS:Serialize(payload)))
+	local result = ns.ImportExport:Decode(text)
+	assert(result.profiles["L102:dungeon"], "Resto should map to this character's 102")
+	assert(result.count == 1 and result.skipped == 1, result.count .. "/" .. result.skipped)
+end)
+step("minimap: left opens options, right opens the themed menu, shift-left locks", function()
+	assert(scenario.dbicon and scenario.dbicon.db == G.settings.minimap, "LibDBIcon not registered")
+	local onClick = scenario.broker.OnClick
+	scenario.optionsOpened = nil
+	onClick(UIParent, "LeftButton")
+	assert(scenario.optionsOpened == "TotemicAccord")
+	onClick(UIParent, "RightButton")
+	assert(ns.Menu.frame._shown, "profile menu not opened")
+	ns.Menu:Close()
+	local was = G.settings.locked
+	scenario.shift = true
+	onClick(UIParent, "LeftButton")
+	scenario.shift = false
+	assert(G.settings.locked ~= was, "shift-click did not toggle the lock")
+	ns.Bar:SetLocked(was)
+end)
+step("minimap tooltip names the profile, auto/manual and the three click hints", function()
+	local lines = {}
+	scenario.broker.OnTooltipShow({ AddLine = function(_, t) lines[#lines + 1] = t end })
+	local text = table.concat(lines, "|")
+	assert(text:find("Totemic Accord") and text:find("Global default") and text:find("Automatic"), text)
+	assert(text:find("Left%-click") and text:find("Right%-click") and text:find("Shift"), text)
+end)
+step("/ta minimap toggles the button (whatever state it starts in)", function()
+	local before = G.settings.minimap.hide
+	ns.addon:OnSlashCommand("minimap")
+	assert(G.settings.minimap.hide == not before and scenario.iconShown == before, "first toggle")
+	ns.addon:OnSlashCommand("minimap")
+	assert(G.settings.minimap.hide == before and scenario.iconShown == not before, "second toggle")
+	ns.Minimap:SetShown(true)
+end)
+step("addon compartment handlers: click and hover work", function()
+	scenario.optionsOpened = nil
+	TotemicAccord_OnAddonCompartmentClick("TotemicAccord", "LeftButton")
+	assert(scenario.optionsOpened == "TotemicAccord")
+	TotemicAccord_OnAddonCompartmentEnter("TotemicAccord", UIParent)
+	TotemicAccord_OnAddonCompartmentLeave("TotemicAccord", UIParent)
+end)
+step("selftest: every check implemented, nothing pending", function()
+	local before = #output
+	ns.SelfTest:Run()
+	for i = before + 1, #output do
+		assert(not output[i]:find("%.%.%.%."), "still pending: " .. output[i])
+	end
+end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
@@ -1322,7 +1501,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "Options.lua", "Minimap.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

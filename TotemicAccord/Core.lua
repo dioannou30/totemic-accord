@@ -65,6 +65,8 @@ local CHAR_DEFAULTS = {
 			point = nil,
 			showSwitchMessage = true,
 			flyoutArrows = true,
+			barOpacity = 0.86,
+			vividInitials = false,
 			debug = false,
 			minimap = { hide = false },
 		},
@@ -128,6 +130,8 @@ function addon:OnEnable()
 	ns.Sequence:Init()
 	ns.Profiles:Init()
 	ns.NativeBar:Init()
+	ns.Options:Init()
+	ns.Minimap:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
 	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
@@ -147,7 +151,7 @@ end
 function addon:PrintHelp()
 	self:Log(L.SLASH_HELP_HEADER)
 	for _, line in ipairs({
-		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
+		L.CMD_OPTIONS, L.CMD_HELP, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
 		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_FLYOUT, L.CMD_ARROWS, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_PROFILES, L.CMD_SAVE, L.CMD_DELETE, L.CMD_SET, L.CMD_MESSAGE,
 		L.CMD_CAPTURE, L.CMD_SEQ, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
@@ -257,9 +261,8 @@ function addon:OnSlashCommand(input)
 	local cmd, rest = input:match("^(%S*)%s*(.-)$")
 	cmd = (cmd or ""):lower()
 
-	if cmd == "" then
-		-- Options are M9; until then /ta is the help text rather than a dead key.
-		self:PrintHelp()
+	if cmd == "" or cmd == "options" then
+		ns.Options:Open()
 	elseif cmd == "debug" then
 		local s = self.db.global.settings
 		s.debug = not s.debug
@@ -319,7 +322,7 @@ function addon:OnSlashCommand(input)
 	elseif cmd == "seq" then
 		self:SequenceCommand(rest)
 	elseif cmd == "minimap" then
-		self:NotYet("M9")
+		self:Log(L.SETTING_SET, cmd, ns.Minimap:Toggle() and "on" or "off")
 	else
 		self:Log(L.CMD_UNKNOWN, cmd)
 		self:PrintHelp()

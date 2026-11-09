@@ -79,6 +79,13 @@ function Themes.RGB(hex, alpha)
 	return tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255, alpha or 1
 end
 
+--- Blend two "#rrggbb" colours: t = 0 gives a, t = 1 gives b. Returns r, g, b.
+function Themes.Mix(a, b, t)
+	local r1, g1, b1 = Themes.RGB(a)
+	local r2, g2, b2 = Themes.RGB(b)
+	return r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t
+end
+
 function Themes:Get(key)
 	return self.LIST[key] or self.LIST.emerald
 end

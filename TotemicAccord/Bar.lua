@@ -581,8 +581,15 @@ function Bar:StyleButton(b, theme)
 	end
 	b.text:SetShown(icon == nil)
 
-	if theme.flat then
+	-- "Vivid initials" (Dio's request): tint an element's face with its colour and
+	-- thicken its strip, instead of the mock's flat dark face.
+	local vivid = s.vividInitials and kind == "element" and not empty and theme.flat
+	if vivid then
+		b.bg:SetColorTexture(Themes.Mix(theme.button, theme[key], 0.22))
+	elseif theme.flat then
 		b.bg:SetColorTexture(RGB(empty and theme.panel or theme.button))
+	end
+	if theme.flat then
 		b.border:SetShown(true)
 		b.border:SetColor(RGB(b.hovered and theme.accent or theme.border))
 		b.classicFrame:Hide()
@@ -617,7 +624,7 @@ function Bar:StyleButton(b, theme)
 		b.line:ClearAllPoints()
 		b.line:SetPoint("BOTTOMLEFT", 3, 2)
 		b.line:SetPoint("BOTTOMRIGHT", -3, 2)
-		b.line:SetHeight(2 * onePixel(b))
+		b.line:SetHeight((vivid and 3 or 2) * onePixel(b))
 		b.line:SetColorTexture(RGB(theme[key], empty and 0.25 or 0.9))
 	else
 		b.line:Hide()
@@ -642,8 +649,11 @@ function Bar:ApplyTheme(theme)
 		return
 	end
 	local f = self.frame
-	f.bg:SetColorTexture(RGB(theme.bg, 0.86))
-	f.border:SetColor(RGB(theme.border))
+	-- Bar backing opacity (Dio's request): 0 = transparent, buttons float on their own.
+	local opacity = settings().barOpacity or 0.86
+	f.bg:SetColorTexture(RGB(theme.bg, opacity))
+	f.border:SetColor(RGB(theme.border, opacity > 0 and math.min(1, opacity + 0.14) or 0))
+	f.sep:SetAlpha(opacity > 0 and 1 or 0)
 	f.sep:SetColorTexture(RGB(theme.border))
 	setFont(f.label, Themes.FONTS.heading, 11)
 	f.label:SetTextColor(RGB(theme.text))
@@ -703,6 +713,7 @@ local VALID = {
 	buttonStyle = { initials = true, icons = true },
 	emptySlot = { grey = true, hide = true },
 	flyoutDir = { up = true, down = true, left = true, right = true },
+	actionMode = { auto = true, cote = true, seq = true },
 }
 
 --- Change a bar setting by name. Returns false for an invalid value.
@@ -717,10 +728,14 @@ function Bar:Set(name, value)
 		end
 	end
 	settings()[name] = value
-	if InCombatLockdown() and (name == "layout" or name == "scale" or name == "emptySlot") then
+	if InCombatLockdown() and (name == "layout" or name == "scale" or name == "emptySlot"
+		or name == "actionMode") then
 		ns.addon:Log(L.COMBAT_QUEUED)
 	end
 	self:Layout()
+	if name == "actionMode" then
+		self:Refresh() -- rewrites the Action button's secure attributes (queued in combat)
+	end
 	Themes:Apply()
 	return true
 end

@@ -5,6 +5,10 @@
 ## Version: 0.1.0
 ## SavedVariables: TotemicAccordDB
 ## SavedVariablesPerCharacter: TotemicAccordCharDB
+## IconTexture: Interface\Icons\Spell_Nature_StoneSkinTotem
+## AddonCompartmentFunc: TotemicAccord_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: TotemicAccord_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: TotemicAccord_OnAddonCompartmentLeave
 ## X-Category: Action Bars
 ## X-License: All Rights Reserved
 
@@ -28,4 +32,7 @@ Flyout.lua
 Sequence.lua
 Profiles.lua
 NativeBar.lua
+ImportExport.lua
+Options.lua
+Minimap.lua
 SelfTest.lua

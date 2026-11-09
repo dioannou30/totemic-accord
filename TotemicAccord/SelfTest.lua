@@ -44,11 +44,6 @@ local function info(label, detail)
 		detail and (" " .. COLOR_MUTED .. "- " .. detail .. COLOR_OFF) or ""))
 end
 
-local function pending(label, milestone)
-	print(("  %s....%s %s %s(%s)%s"):format(COLOR_MUTED, COLOR_OFF, label,
-		COLOR_MUTED, milestone, COLOR_OFF))
-end
-
 --- Spell name lookup that tolerates the API shape changing under us.
 local function spellName(idOrName)
 	local ok, res = pcall(function()
@@ -444,8 +439,34 @@ function SelfTest:Run()
 				or ("type=%s"):format(tostring(action:GetAttribute("type"))))
 		end
 	end
-	pending(L.TEST_MINIMAP, "M9")
-	pending(L.TEST_COMPARTMENT, "M9")
+	-- ---------------------------------------------------------------- M9
+	if ns.Options.registered then
+		pass("Options window", "/ta, or Options > AddOns > " .. addon.DISPLAY_NAME)
+	else
+		fail("Options window", "not registered")
+	end
+	if ns.Minimap:IsRegistered() then
+		pass(L.TEST_MINIMAP, addon.db.global.settings.minimap.hide and "hidden (/ta minimap)" or "shown")
+	else
+		fail(L.TEST_MINIMAP, "LibDBIcon has no button")
+	end
+	-- VERIFY item 11: does Forever have the addon compartment, and are we in it?
+	local compartment = _G.AddonCompartmentFrame
+	if not compartment then
+		info(L.TEST_COMPARTMENT, "this client has no addon compartment -- minimap button only")
+	else
+		local listed = false
+		for _, entry in ipairs(compartment.registeredAddons or {}) do
+			if entry.text == addon.DISPLAY_NAME then
+				listed = true
+			end
+		end
+		if listed then
+			pass(L.TEST_COMPARTMENT)
+		else
+			fail(L.TEST_COMPARTMENT, "compartment exists but Totemic Accord is not listed")
+		end
+	end
 
 	print(("%s%s%s"):format(COLOR_MUTED,
 		"  " .. L.SELFTEST_SUMMARY:format(results.passed, results.failed), COLOR_OFF))

@@ -261,6 +261,32 @@ function Profiles:Delete(key)
 	return true
 end
 
+--- Set one element of any profile cell (the options grid), creating the profile if
+--- needed. Out of combat only, like every edit that can change a secure button.
+function Profiles:SetElementFor(key, elementKey, totemName)
+	if InCombatLockdown() then
+		ns.addon:Log(L.COMBAT_NO_TOTEM_CHANGE)
+		return false
+	end
+	if not Profiles.Parse(key) or key == "captured" then
+		return false
+	end
+	local profile = db().profiles[key] or {}
+	db().profiles[key] = profile
+	if totemName then
+		local t = ns.Data:FindTotem(totemName)
+		profile[elementKey] = { spellID = t and t.spellID, name = totemName }
+	else
+		profile[elementKey] = nil
+	end
+	if key == self.applied then
+		self.applied = nil -- force a re-apply of the same key
+	end
+	self:Update("edited", true)
+	ns.Options:Refresh()
+	return true
+end
+
 --- Set one element of the APPLIED profile (creating "global" if nothing is applied yet).
 --- Out of combat only: it changes what a secure button casts. Used by the flyouts (M6).
 function Profiles:SetElement(elementKey, totemName)
@@ -319,6 +345,7 @@ function Profiles:Apply(key, reason, quiet)
 	-- New profile, new castsequence: restart the counter and keep "TA Sequence" in step.
 	ns.Sequence:ResetCounter()
 	ns.Sequence:SyncGameMacro(false)
+	ns.Options:Refresh()
 	ns.addon:Debug("profile %s -> %s (%s)", tostring(previous), tostring(key), tostring(reason))
 	if key and key ~= previous and not quiet and previous ~= nil then
 		self:Announce(key)

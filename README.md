@@ -3,8 +3,8 @@
 A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
 16001), with profiles that switch **automatically by spec and situation**.
 
-> Status: **M8 (native bar) built; Call of the Elements testable at level 20.** One Action press
-> writes the profile into the native totem bar and casts Call of the Elements.
+> Status: **M9 (options, import/export, minimap) built, awaiting in-game verification.**
+> `/ta` opens the options; Call of the Elements (M8) is testable at level 20. Polish (M10) next.
 > See `docs/CLAUDE_CODE_PROMPT.md` for the full spec and `docs/decisions.md` for the log.
 
 Other Forever totem bars exist; none of them switches totem sets automatically by

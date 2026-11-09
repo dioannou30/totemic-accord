@@ -226,6 +226,7 @@ function Sequence:Changed()
 	self:ResetCounter()
 	ns.Bar:Refresh()
 	self:SyncGameMacro(false)
+	ns.Options:Refresh()
 end
 
 function Sequence:SetOrder(order)
