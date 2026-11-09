@@ -357,7 +357,7 @@ local function appearanceTab()
 			set = function(_, v) ns.Bar:SetLocked(v) end,
 		},
 		showSwitchMessage = {
-			type = "toggle", order = 22, name = L.OPT_MESSAGE,
+			type = "toggle", order = 22, name = L.OPT_MESSAGE, desc = L.OPT_MESSAGE_DESC,
 			get = function() return settings().showSwitchMessage end,
 			set = function(_, v) settings().showSwitchMessage = v end,
 		},
@@ -379,9 +379,11 @@ local function appearanceTab()
 		keysHeader = { type = "header", order = 30, name = L.OPT_KEYS },
 		keysInfo = { type = "description", order = 31, name = L.OPT_KEYS_DESC },
 		keys = {
-			type = "execute", order = 32, name = L.OPT_KEYS_APPLY,
+			type = "execute", order = 32, name = L.OPT_KEYS_APPLY, width = 1.3,
 			func = function() ns.Keybinds:ApplySuggested() end,
 		},
+		-- Own row for the button above, so the seven key buttons below form a grid.
+		keysBreak = { type = "description", order = 33, name = "", width = "full" },
 		bind_earth = keybind(41, "TotemicAccordEarth", L.BIND_EARTH),
 		bind_fire = keybind(42, "TotemicAccordFire", L.BIND_FIRE),
 		bind_water = keybind(43, "TotemicAccordWater", L.BIND_WATER),

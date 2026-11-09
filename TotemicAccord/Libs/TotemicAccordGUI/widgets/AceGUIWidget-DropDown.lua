@@ -169,7 +169,7 @@ do
 
 		local h = #self.items * 16
 		self.itemFrame:SetHeight(h)
-		self.frame:SetHeight(min(h + 34, self.maxHeight)) -- +34: 20 for scrollFrame placement (10 offset) and +14 for item placement
+		self.frame:SetHeight(min(h + 12, self.maxHeight)) -- TotemicAccord: +12 = 4px insets top/bottom (flat 1px border) + 2px item offset + 2px slack (Ace3: +34)
 
 		item.frame:SetPoint("LEFT", self.itemFrame, "LEFT")
 		item.frame:SetPoint("RIGHT", self.itemFrame, "RIGHT")
@@ -230,8 +230,8 @@ do
 		self.maxHeight = height or defaultMaxHeight
 		if self.frame:GetHeight() > height then
 			self.frame:SetHeight(height)
-		elseif (self.itemFrame:GetHeight() + 34) < height then
-			self.frame:SetHeight(self.itemFrame:GetHeight() + 34) -- see :AddItem
+		elseif (self.itemFrame:GetHeight() + 12) < height then
+			self.frame:SetHeight(self.itemFrame:GetHeight() + 12) -- see :AddItem
 		end
 	end
 
@@ -311,8 +311,8 @@ do
 		slider.obj = self
 
 		scrollFrame:SetScrollChild(itemFrame)
-		scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -12)
-		scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 12)
+		scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -4) -- TotemicAccord: flat 1px border, less padding
+		scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -6, 4)
 		scrollFrame:EnableMouseWheel(true)
 		scrollFrame:SetScript("OnMouseWheel", OnMouseWheel)
 		scrollFrame:SetScript("OnSizeChanged", OnSizeChanged)

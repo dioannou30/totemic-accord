@@ -671,6 +671,9 @@ local function safelayoutcall(object, func, ...)
 	layoutrecursionblock = nil
 end
 
+-- TotemicAccord: spacing between widgets (Ace3 uses 0 across and 3 down; it read as
+-- cramped in the themed window). The only behavioural change made to this fork.
+local FLOW_HGAP, FLOW_VGAP = 10, 10
 AceGUI:RegisterLayout("Flow",
 	function(content, children)
 		if layoutrecursionblock then return end
@@ -726,15 +729,15 @@ AceGUI:RegisterLayout("Flow",
 			else
 				-- if there isn't available width for the control start a new row
 				-- if a control is "fill" it will be on a row of its own full width
-				if usedwidth == 0 or ((framewidth) + usedwidth > width) or child.width == "fill" then
+				if usedwidth == 0 or ((framewidth) + usedwidth + FLOW_HGAP > width) or child.width == "fill" then
 					if isfullheight then
 						-- a previous row has already filled the entire height, there's nothing we can usefully do anymore
 						-- (maybe error/warn about this?)
 						break
 					end
 					--anchor the previous row, we will now know its height and offset
-					rowstart:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(height + (rowoffset - rowstartoffset) + 3))
-					height = height + rowheight + 3
+					rowstart:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(height + (rowoffset - rowstartoffset) + FLOW_VGAP))
+					height = height + rowheight + FLOW_VGAP
 					--save this as the rowstart so we can anchor it after the row is complete and we have the max height and offset of controls in it
 					rowstart = frame
 					rowstartoffset = frameoffset
@@ -753,8 +756,8 @@ AceGUI:RegisterLayout("Flow",
 					rowoffset = math_max(rowoffset, frameoffset)
 					rowheight = math_max(rowheight, rowoffset + (frameheight / 2))
 
-					frame:SetPoint("TOPLEFT", children[i-1].frame, "TOPRIGHT", 0, frameoffset - lastframeoffset)
-					usedwidth = framewidth + usedwidth
+					frame:SetPoint("TOPLEFT", children[i-1].frame, "TOPRIGHT", FLOW_HGAP, frameoffset - lastframeoffset)
+					usedwidth = framewidth + usedwidth + FLOW_HGAP
 				end
 			end
 
@@ -793,10 +796,10 @@ AceGUI:RegisterLayout("Flow",
 		if isfullheight then
 			rowstart:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -height)
 		elseif rowstart then
-			rowstart:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(height + (rowoffset - rowstartoffset) + 3))
+			rowstart:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(height + (rowoffset - rowstartoffset) + FLOW_VGAP))
 		end
 
-		height = height + rowheight + 3
+		height = height + rowheight + FLOW_VGAP
 		safecall(content.obj.LayoutFinished, content.obj, nil, height)
 	end)
 

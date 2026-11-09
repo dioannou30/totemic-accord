@@ -57,7 +57,11 @@ leak our theme into their windows. The forks are byte-for-byte Ace3 r1403 except
 mechanical rename: the LibStub names above, and every global frame-name prefix
 (`AceGUI30…` → `TotemicAccordGUI30…`, `AceGUI-3.0EditBox` → `TotemicAccordGUIEditBox`,
 `AceGUITabGroup…`, `AceGUITooltip`, `AceConfigDialog{ScrollFrame,TreeGroup,Tooltip}…`) so the
-two copies never collide. All theming lives in `TotemicAccord/OptionsSkin.lua`, not in the
-forks, so re-forking a newer Ace3 is the same rename again. Licence: Ace3's
+two copies never collide. Theming lives in `TotemicAccord/OptionsSkin.lua`. Two layout constants in the fork differ
+from Ace3, each marked `TotemicAccord:` in the source — re-apply them when re-forking:
+- `TotemicAccordGUI.lua`, Flow layout: 10px between widgets and between rows (Ace3: 0 and 3).
+- `widgets/AceGUIWidget-DropDown.lua`, pullout: 4px insets and `items + 12` height (Ace3: 12px
+  and `+ 34`), sized for the flat 1px border.
+`tools/gui_layout_test.lua` checks the Flow spacing. Licence: Ace3's
 (`Ace3-LICENSE.txt`). The forked dialog still uses the shared `AceConfigRegistry-3.0` (pure
 data), so both dialogs show the same options.

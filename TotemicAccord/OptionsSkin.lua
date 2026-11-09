@@ -72,26 +72,30 @@ local function hideTemplateTextures(frame)
 	end
 end
 
---- Our own flat face for a frame: background + 1px border, created once.
-local function face(frame, bgHex, borderHex, bgAlpha)
+--- Our own flat face for a frame: background + 1px border, created once. `inset` pulls
+--- it in horizontally (Ace overlaps tab buttons by 10px; Blizzard's slanted art hid that).
+local function face(frame, bgHex, borderHex, bgAlpha, inset)
 	local s = frame.taFace
 	if not s then
 		s = {}
 		s.bg = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
 		s.bg.taOwn = true
-		s.bg:SetAllPoints()
 		s.edges = {}
 		for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
 			local t = frame:CreateTexture(nil, "BORDER", nil, 7)
 			t.taOwn = true
 			s.edges[side] = t
 		end
-		s.edges.TOP:SetPoint("TOPLEFT"); s.edges.TOP:SetPoint("TOPRIGHT"); s.edges.TOP:SetHeight(1)
-		s.edges.BOTTOM:SetPoint("BOTTOMLEFT"); s.edges.BOTTOM:SetPoint("BOTTOMRIGHT"); s.edges.BOTTOM:SetHeight(1)
-		s.edges.LEFT:SetPoint("TOPLEFT"); s.edges.LEFT:SetPoint("BOTTOMLEFT"); s.edges.LEFT:SetWidth(1)
-		s.edges.RIGHT:SetPoint("TOPRIGHT"); s.edges.RIGHT:SetPoint("BOTTOMRIGHT"); s.edges.RIGHT:SetWidth(1)
 		frame.taFace = s
 	end
+	local x = inset or 0
+	local e = s.edges
+	for _, t in ipairs({ s.bg, e.TOP, e.BOTTOM, e.LEFT, e.RIGHT }) do t:ClearAllPoints() end
+	s.bg:SetPoint("TOPLEFT", x, 0); s.bg:SetPoint("BOTTOMRIGHT", -x, 0)
+	e.TOP:SetPoint("TOPLEFT", x, 0); e.TOP:SetPoint("TOPRIGHT", -x, 0); e.TOP:SetHeight(1)
+	e.BOTTOM:SetPoint("BOTTOMLEFT", x, 0); e.BOTTOM:SetPoint("BOTTOMRIGHT", -x, 0); e.BOTTOM:SetHeight(1)
+	e.LEFT:SetPoint("TOPLEFT", x, 0); e.LEFT:SetPoint("BOTTOMLEFT", x, 0); e.LEFT:SetWidth(1)
+	e.RIGHT:SetPoint("TOPRIGHT", -x, 0); e.RIGHT:SetPoint("BOTTOMRIGHT", -x, 0); e.RIGHT:SetWidth(1)
 	s.bg:SetColorTexture(RGB(bgHex, bgAlpha or 1))
 	for _, t in pairs(s.edges) do
 		t:SetColorTexture(RGB(borderHex))
@@ -161,7 +165,16 @@ skins.Frame = function(w)
 			region:SetAlpha(0)
 		end
 	end
+	-- Ace puts the title on the header art ABOVE the frame; without the art it sat on the
+	-- top border. Move it inside, and give the content room under it.
 	font(w.titletext, "heading", 14, t.accent)
+	w.titletext:ClearAllPoints()
+	w.titletext:SetPoint("TOP", f, "TOP", 0, -14)
+	if w.content then
+		w.content:ClearAllPoints()
+		w.content:SetPoint("TOPLEFT", 18, -40)
+		w.content:SetPoint("BOTTOMRIGHT", -18, 46)
+	end
 	font(w.statustext, "heading", 11, t.muted)
 	for _, child in ipairs({ f:GetChildren() }) do
 		if child.SetBackdrop and child ~= f then -- the status bar
@@ -175,6 +188,11 @@ end
 skins.TabGroup = function(w)
 	local t = theme()
 	flatBackdrop(w.border, t.bg, 0.55, t.border)
+	if w.content then
+		w.content:ClearAllPoints()
+		w.content:SetPoint("TOPLEFT", 14, -14)
+		w.content:SetPoint("BOTTOMRIGHT", -14, 10)
+	end
 	font(w.titletext, "heading", 12, t.text)
 	for _, tab in ipairs(w.tabs or {}) do
 		for _, key in ipairs({ "Left", "Middle", "Right", "LeftDisabled", "MiddleDisabled", "RightDisabled" }) do
@@ -182,12 +200,12 @@ skins.TabGroup = function(w)
 		end
 		local hl = tab:GetHighlightTexture()
 		if hl then hl:SetAlpha(0) end
-		local s = face(tab, tab.selected and t.button or t.panel, t.border)
+		local s = face(tab, tab.selected and t.button or t.panel, t.border, 1, 6)
 		if not tab.taLine then
 			tab.taLine = tab:CreateTexture(nil, "OVERLAY")
 			tab.taLine.taOwn = true
-			tab.taLine:SetPoint("BOTTOMLEFT", 1, 1)
-			tab.taLine:SetPoint("BOTTOMRIGHT", -1, 1)
+			tab.taLine:SetPoint("BOTTOMLEFT", 7, 1)
+			tab.taLine:SetPoint("BOTTOMRIGHT", -7, 1)
 			tab.taLine:SetHeight(2)
 		end
 		tab.taLine:SetColorTexture(RGB(t.accent))
@@ -220,6 +238,15 @@ skins.CheckBox = function(w)
 	local t = theme()
 	w.checkbg:SetColorTexture(RGB(t.button))
 	w.checkbg:SetSize(16, 16)
+	-- Centre the smaller box where Blizzard's 24px art was, and leave a gap before the text
+	-- (Ace anchors the text flush against the box; Blizzard's art had padding built in).
+	w.checkbg:ClearAllPoints()
+	w.checkbg:SetPoint("TOPLEFT", w.frame, "TOPLEFT", 4, -4)
+	if not (w.image and w.image:IsShown()) then
+		w.text:ClearAllPoints()
+		w.text:SetPoint("LEFT", w.checkbg, "RIGHT", 8, 0)
+		w.text:SetPoint("RIGHT")
+	end
 	if not w.checkbg.taEdges then
 		local holder = CreateFrame("Frame", nil, w.frame)
 		holder:SetAllPoints(w.checkbg)
@@ -271,6 +298,10 @@ skins.Dropdown = function(w)
 		dropdownArrow(button)
 	end
 	font(w.text, "heading", 12, w.disabled and t.muted or t.text)
+	w.text:ClearAllPoints()
+	w.text:SetPoint("LEFT", w.taBox, "LEFT", 8, 0)
+	w.text:SetPoint("RIGHT", w.taBox, "RIGHT", -22, 0)
+	w.text:SetJustifyH("LEFT")
 	font(w.label, "heading", 11, t.muted)
 end
 
@@ -328,6 +359,10 @@ end
 skins.MultiLineEditBox = function(w)
 	local t = theme()
 	flatBackdrop(w.scrollBG, t.bg, 0.7, t.border)
+	if w.button and w.button:IsShown() then
+		-- Ace butts the text box against the Accept button; leave a gap.
+		w.scrollBG:SetPoint("BOTTOMLEFT", w.button, "TOPLEFT", 0, 8)
+	end
 	font(w.editBox, "mono", 11, t.text)
 	font(w.label, "heading", 11, t.muted)
 	if w.button then panelButton(w.button) end
@@ -362,7 +397,7 @@ end
 
 local RESKIN_AFTER = {
 	"SetDisabled", "SetFontObject", "BuildTabs", "SelectTab", "SetType", "SetValue",
-	"SetTitle", "SetLabel",
+	"SetTitle", "SetLabel", "SetImage", "DisableButton",
 }
 
 function Skin:Apply(w)
