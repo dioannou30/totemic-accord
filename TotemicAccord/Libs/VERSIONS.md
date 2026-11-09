@@ -43,3 +43,21 @@ Both are SIL Open Font License, so they can ship with the addon. `OFL.txt` is ke
 | JetBrains Mono | Regular, Bold | `v2.304` / `cd5227bd1f` (2023-01-14) | https://github.com/JetBrains/JetBrainsMono |
 
 Note: Manrope is at `googlefonts/manrope`; the older `sharanda/manrope` URL is gone (404).
+
+## Private forks (renamed copies — not shared with other addons)
+
+| Fork | From | Why |
+|---|---|---|
+| `TotemicAccordGUI/` (`TotemicAccordGUI-1.0`) | AceGUI-3.0 minor 41, Ace3 `Release-r1403` | Themed options window |
+| `TotemicAccordConfigDialog/` (`TotemicAccordConfigDialog-1.0`) | AceConfigDialog-3.0 minor 92, same release | Draws the window with the forked GUI |
+
+The shared AceGUI-3.0 is loaded by several addons on this install (Questie, RareScanner,
+OpenMap — all minor 41), and it **recycles widgets between addons**, so restyling it would
+leak our theme into their windows. The forks are byte-for-byte Ace3 r1403 except for a
+mechanical rename: the LibStub names above, and every global frame-name prefix
+(`AceGUI30…` → `TotemicAccordGUI30…`, `AceGUI-3.0EditBox` → `TotemicAccordGUIEditBox`,
+`AceGUITabGroup…`, `AceGUITooltip`, `AceConfigDialog{ScrollFrame,TreeGroup,Tooltip}…`) so the
+two copies never collide. All theming lives in `TotemicAccord/OptionsSkin.lua`, not in the
+forks, so re-forking a newer Ace3 is the same rename again. Licence: Ace3's
+(`Ace3-LICENSE.txt`). The forked dialog still uses the shared `AceConfigRegistry-3.0` (pure
+data), so both dialogs show the same options.
