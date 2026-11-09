@@ -1,0 +1,17 @@
+# Local deploy configuration for Totemic Accord.
+#
+# Copy this file to tools/deploy.local (which is gitignored) and set WOW_DIR to the
+# World of Warcraft folder that CONTAINS the _forever_ directory -- not _forever_
+# itself, and not Interface/AddOns.
+#
+# The deploy script writes this file for you the first time it autodetects an
+# install, so you usually do not need to create it by hand.
+#
+# Windows example:
+WOW_DIR=D:\World of Warcraft
+#
+# Linux (Lutris/Wine) example:
+# WOW_DIR=/home/you/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft
+#
+# macOS example:
+# WOW_DIR=/Applications/World of Warcraft

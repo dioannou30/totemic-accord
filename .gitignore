@@ -1,0 +1,27 @@
+# Blizzard UI source clone (API source of truth, ~large, re-clonable)
+reference/
+
+# Local deploy configuration (machine-specific WoW path)
+tools/deploy.local
+tools/deploy.local.*
+!tools/deploy.local.example
+
+# Packaged builds
+dist/
+*.zip
+
+# Editor / OS junk
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Lua build artifacts
+*.luac
+luac.out
+
+# Generated from reference/ by tools/check_api.py (derived, like reference/ itself)
+tools/wow_globals.lua
