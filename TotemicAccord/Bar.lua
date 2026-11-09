@@ -484,8 +484,9 @@ function Bar:SecureSpec(b)
 				return "macro", nil, text
 			end
 		else
-			-- Placeholder until M8 adds the native-bar sync before the cast.
-			return "spell", C_Spell.GetSpellName(TOTEM_MULTI_CAST_SUMMON_SPELLS[1]), nil
+			-- /click the four sync buttons (profile -> native bar), then cast
+			-- Call of the Elements. See NativeBar.lua.
+			return "macro", nil, ns.NativeBar:MacroText()
 		end
 	end
 	return nil, nil, nil
@@ -515,6 +516,7 @@ function Bar:ApplySecure()
 			b:SetAttribute("macrotext", macrotext)
 		end
 	end
+	ns.NativeBar:ApplySync()
 end
 
 function Bar:UpdateCounter()

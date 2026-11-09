@@ -51,6 +51,8 @@ local CHAR_DEFAULTS = {
 		captured = {},   -- snapshot of the native Call of the Elements page
 		manual = nil,    -- a profile key while manually pinned, else nil
 		learnedElements = {}, -- ["<totem spell name>"] = "earth" etc., seen via GetTotemInfo
+		loadoutNames = {},    -- [configID] = name, for labels of loadouts not active now
+		nativeWritten = false, -- set once our sync buttons have written the native bar
 		settings = {
 			theme = "emerald",
 			buttonStyle = "initials",
@@ -125,6 +127,7 @@ function addon:OnEnable()
 	ns.Flyout:Init()
 	ns.Sequence:Init()
 	ns.Profiles:Init()
+	ns.NativeBar:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
 	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
@@ -305,7 +308,12 @@ function addon:OnSlashCommand(input)
 		self.db.global.settings.showSwitchMessage = on
 		self:Log(L.SETTING_SET, cmd, on and "on" or "off")
 	elseif cmd == "capture" then
-		self:NotYet("M8")
+		if InCombatLockdown() then
+			self:Log(L.COMBAT_QUEUED)
+		else
+			local n = ns.NativeBar:Capture()
+			self:Log(n > 0 and L.CAPTURE_DONE or L.CAPTURE_EMPTY, n)
+		end
 	elseif cmd == "macro" then
 		ns.Sequence:SyncGameMacro(true)
 	elseif cmd == "seq" then

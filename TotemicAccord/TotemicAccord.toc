@@ -26,4 +26,5 @@ Bar.lua
 Flyout.lua
 Sequence.lua
 Profiles.lua
+NativeBar.lua
 SelfTest.lua

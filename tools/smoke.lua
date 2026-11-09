@@ -157,6 +157,8 @@ local function newWidget(name)
 	end
 	function methods:GetAttribute(k) return self._attrs and self._attrs[k] end
 	function methods:RegisterForClicks(...) self._clicks = { ... } end
+	function methods:GetID() return self._id or 0 end
+	function methods:SetID(id) self._id = id end
 	function methods:RegisterUnitEvent(ev)
 		if ev == "UNIT_SPELLCAST_SUCCEEDED" then FRAMES.__castProbe = self end
 	end
@@ -212,6 +214,25 @@ MenuUtil = { CreateContextMenu = function(owner, generator)
 	generator(owner, root)
 	scenario.menu = root.items
 end }
+
+-- M8: the native totem bar's action slots
+C_ActionBar = { GetMultiCastBarIndex = function() return 13 end }
+NUM_ACTIONBAR_BUTTONS, NUM_MULTI_CAST_BUTTONS_PER_PAGE = 12, 4
+scenario.native = {} -- action slot -> spellID
+function GetActionInfo(slot)
+	local id = scenario.native[slot]
+	if id then return "spell", id end
+end
+--- What Blizzard's SECURE_ACTIONS.multispell does when a sync button is /clicked:
+--- CalculateAction (ID 0 -> our "action" attribute), then SetMultiCastSpell. A /click
+--- arrives as a key-up, which only acts if useOnKeyDown is false.
+function emulateSyncClick(b)
+	if b:GetAttribute("useOnKeyDown") ~= false then return end
+	if b:GetAttribute("type") ~= "multispell" then return end
+	local action = (b:GetID() > 0) and -1 or b:GetAttribute("action")
+	scenario.native[action] = tonumber(b:GetAttribute("spell"))
+	if b._scripts.PostClick then b._scripts.PostClick(b) end
+end
 
 -- M7: a clock, the macro store, and character macro slots
 scenario.now = 1000
@@ -350,7 +371,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -1159,6 +1180,93 @@ step("over-long macros are refused with the length", function()
 end)
 step("selftest with sequence section", function() ns.SelfTest:Run() end)
 
+realPrint("\nNative bar (M8):")
+local N = ns.NativeBar
+local function sync(i) return FRAMES["TotemicAccordSync" .. i] end
+local SLOT = { earth = 146, fire = 145, water = 147, air = 148 } -- (13-1)*12 + TOTEM_SLOT
+step("four hidden sync buttons: multispell, ID 0, act on key-up", function()
+	for i, key in ipairs({ "earth", "fire", "water", "air" }) do
+		local b = sync(i)
+		assert(b and not b._shown, "TotemicAccordSync" .. i)
+		assert(b:GetAttribute("type") == "multispell" and b:GetAttribute("useOnKeyDown") == false)
+		assert(b:GetID() == 0, "an ID would make CalculateAction ignore the action attribute")
+		assert(b:GetAttribute("action") == SLOT[key], key .. " slot " .. tostring(b:GetAttribute("action")))
+	end
+end)
+step("sync buttons carry the applied profile's totems; empty element -> 0 (clear)", function()
+	ns.addon:OnSlashCommand("set air none")
+	assert(sync(1):GetAttribute("spell") == 8071, tostring(sync(1):GetAttribute("spell"))) -- Stoneskin
+	assert(sync(2):GetAttribute("spell") == 3599) -- Searing
+	assert(sync(4):GetAttribute("spell") == 0, "air should clear the slot")
+	ns.addon:OnSlashCommand("set air Gr")
+	assert(sync(4):GetAttribute("spell") == 8177)
+end)
+step("Auto mode turns the Action button into the Call of the Elements macro at 20", function()
+	scenario.knowsCOE = false
+	B:Refresh()
+	assert(B.actionMode == "seq")
+	scenario.knowsCOE = true -- level 20: learned
+	B:Refresh() -- SPELLS_CHANGED
+	assert(B.actionMode == "cote")
+	local want = "#showtooltip Call of the Elements\n/click TotemicAccordSync1\n/click TotemicAccordSync2\n"
+		.. "/click TotemicAccordSync3\n/click TotemicAccordSync4\n/cast Call of the Elements"
+	local a = btn("Action")
+	assert(a:GetAttribute("type") == "macro" and a:GetAttribute("macrotext") == want, a:GetAttribute("macrotext"))
+	assert(#want <= 255 and a.text._text == "CotE" and a.count._text == "", "label/counter")
+end)
+step("one press writes the profile into the native page (emulated multispell)", function()
+	scenario.native = {}
+	for i = 1, 4 do emulateSyncClick(sync(i)) end
+	assert(scenario.native[146] == 8071 and scenario.native[145] == 3599 and scenario.native[148] == 8177)
+	assert(scenario.native[147] == 5394, "water")
+	assert(G.nativeWritten, "write not recorded")
+end)
+step("a profile switch re-points the sync buttons; in combat it waits", function()
+	ns.addon:OnSlashCommand("save global:dungeon")
+	ns.addon:OnSlashCommand("profile global:dungeon")
+	ns.addon:OnSlashCommand("set earth EB")
+	ns.addon:OnSlashCommand("auto")
+	scenario.inCombat = true
+	enter("party")
+	assert(sync(1):GetAttribute("spell") == 8071, "changed in combat")
+	scenario.inCombat = false
+	P:OnRegenEnabled()
+	N:OnRegenEnabled()
+	assert(sync(1):GetAttribute("spell") == 2484, tostring(sync(1):GetAttribute("spell"))) -- Earthbind
+	enter("none")
+	ns.addon:OnSlashCommand("delete global:dungeon")
+end)
+step("/ta capture snapshots the native page as the last-fallback profile", function()
+	scenario.native = { [146] = 8075, [145] = 1535 } -- Strength of Earth, Fire Nova
+	ns.addon:OnSlashCommand("capture")
+	assert(G.captured.earth.name == "Strength of Earth Totem" and G.captured.fire.spellID == 1535)
+	assert(G.captured.water == nil)
+	local saved = G.profiles
+	G.profiles = {}
+	P:Update("test")
+	assert(P.applied == "captured" and btn("Profile").text._text == "DEF\nBAR", tostring(P.applied))
+	assert(btn("Earth").totem.name == "Strength of Earth Totem")
+	G.profiles = saved
+	P:Update("test")
+end)
+step("an empty native page is reported, not captured", function()
+	scenario.native = {}
+	ns.addon:OnSlashCommand("capture")
+	assert(lastLine():find("empty"), lastLine())
+	assert(G.captured.earth, "previous capture was wiped")
+end)
+step("automatic first-run capture never captures our own writes", function()
+	G.captured, G.nativeWritten = {}, false
+	scenario.native = { [146] = 8071 }
+	N:CaptureIfFirstRun()
+	assert(G.captured.earth, "first run should capture the player's own page")
+	G.captured, G.nativeWritten = {}, true
+	N:CaptureIfFirstRun()
+	assert(next(G.captured) == nil, "captured a page we had written")
+	scenario.knowsCOE = false
+	B:Refresh()
+end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
@@ -1177,7 +1285,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

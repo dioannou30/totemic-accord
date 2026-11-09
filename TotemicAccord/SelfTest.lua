@@ -391,7 +391,40 @@ function SelfTest:Run()
 	else
 		fail(L.TEST_PROFILE_SPELLS, "not known: " .. table.concat(unknown, "; "))
 	end
-	pending("Native bar sync buttons", "M8")
+	-- ---------------------------------------------------------------- M8: native bar
+	local Native = ns.NativeBar
+	if Native.sync then
+		local wrong, parts = {}, {}
+		local want = Native:DesiredSpells()
+		for i, sb in ipairs(Native.sync) do
+			local slot = Native.ActionSlot(sb.element)
+			local ok = sb:GetAttribute("type") == "multispell" and sb:GetAttribute("action") == slot
+				and sb:GetAttribute("spell") == want[sb.element.key] and sb:GetID() == 0
+				and sb:GetAttribute("useOnKeyDown") == false
+			if not ok then
+				wrong[#wrong + 1] = sb.element.key
+			end
+			parts[#parts + 1] = ("%d:%s->%s"):format(i, tostring(slot), tostring(sb:GetAttribute("spell")))
+		end
+		if #wrong == 0 then
+			pass(L.TEST_NATIVE_SYNC, table.concat(parts, " "))
+		else
+			fail(L.TEST_NATIVE_SYNC, "wrong: " .. table.concat(wrong, ", ")
+				.. (Native.pending and " (queued until combat ends)" or ""))
+		end
+	else
+		fail(L.TEST_NATIVE_SYNC, InCombatLockdown() and "waiting for combat to end" or "not created")
+	end
+	local native, cap = {}, {}
+	for _, e in ipairs(ns.Data.ELEMENTS) do
+		local now = Native:Read()[e.key]
+		native[#native + 1] = e.key .. "=" .. (now and now.name or "-")
+		local c = addon.db.global.captured[e.key]
+		cap[#cap + 1] = e.key .. "=" .. (c and c.name or "-")
+	end
+	info("Native page now", table.concat(native, ", ") .. (" (bar index %s)"):format(
+		tostring(C_ActionBar.GetMultiCastBarIndex())))
+	info(L.TEST_CAPTURED, table.concat(cap, ", "))
 	-- ---------------------------------------------------------------- M7: sequence
 	local Seq = ns.Sequence
 	local text = Seq:MacroText()

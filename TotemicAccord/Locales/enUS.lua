@@ -166,6 +166,13 @@ L.MACRO_NO_SLOT = "Couldn't create the macro: no free character macro slot."
 L.TEST_SEQUENCE = "Sequence"
 L.TEST_GAME_MACRO = "Game macro 'TA Sequence'"
 
+-- Native bar (M8)
+L.CAPTURED_FIRST_RUN = "Captured your native totem bar (%d element(s)) as the last-resort profile."
+L.CAPTURE_DONE = "Captured the native totem bar (%d element(s)) as the 'Captured default bar' profile."
+L.CAPTURE_EMPTY = "The native totem bar's Call of the Elements page is empty - nothing to capture."
+L.TEST_NATIVE_SYNC = "Native bar sync buttons"
+L.TEST_CAPTURED = "Captured default bar"
+
 -- Combat guards
 L.COMBAT_NO_TOTEM_CHANGE = "Can't change totems in combat."
 L.COMBAT_QUEUED = "In combat - queued, will apply when combat ends."
