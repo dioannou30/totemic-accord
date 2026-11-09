@@ -267,8 +267,10 @@ scenario.saved = 0
 scenario.popup = nil
 function SetBinding(key, command)
 	assert(not scenario.inCombat, "SetBinding called in combat")
+	local old = scenario.bindingActions[key]
+	if old then scenario.bindings[old] = nil end
 	scenario.bindingActions[key] = command
-	scenario.bindings[command] = key
+	if command then scenario.bindings[command] = key end
 end
 function SaveBindings() scenario.saved = scenario.saved + 1 end
 function GetCurrentBindingSet() return 1 end
@@ -352,6 +354,7 @@ registered["AceConfigDialog-3.0"] = {
 	SetDefaultSize = function() end,
 	AddToBlizOptions = function(_, app, title) scenario.blizOptions = title end,
 	Open = function(_, app) scenario.optionsOpened = app end,
+	SelectGroup = function(_, app, tab) scenario.optionsTab = tab end,
 }
 scenario.notified = 0
 registered["AceConfigRegistry-3.0"] = { NotifyChange = function() scenario.notified = scenario.notified + 1 end }
@@ -1474,6 +1477,48 @@ step("addon compartment handlers: click and hover work", function()
 	assert(scenario.optionsOpened == "TotemicAccord")
 	TotemicAccord_OnAddonCompartmentEnter("TotemicAccord", UIParent)
 	TotemicAccord_OnAddonCompartmentLeave("TotemicAccord", UIParent)
+end)
+step("the profile name under the bar is hidden by default; the toggle shows it", function()
+	B:Refresh()
+	assert(not B.frame.label._shown, "label shown by default")
+	opt("appearance", "profileLabel").set({}, true)
+	assert(B.frame.label._shown)
+	opt("appearance", "profileLabel").set({}, false)
+	assert(not B.frame.label._shown)
+end)
+step("Create makes the selected cell from the bar; disabled once it exists", function()
+	ns.Options.editRow, ns.Options.editCol = "global", "raid"
+	local create = opt("profiles", "create")
+	assert(not create.disabled({}))
+	create.func()
+	assert(G.profiles["global:raid"] and create.disabled({}), "not created")
+	opt("profiles", "remove").func()
+end)
+step("per-button key capture: bind, replace (with a note), clear, refused in combat", function()
+	local earth = opt("appearance", "bind_earth")
+	scenario.bindingActions["ALT-1"] = "ACTIONBUTTON1"
+	scenario.bindings["ACTIONBUTTON1"] = "ALT-1"
+	earth.set({}, "ALT-1")
+	assert(earth.get({}) == "ALT-1" and scenario.bindingActions["ALT-1"] == "CLICK TotemicAccordEarth:LeftButton")
+	assert(lastLine():find("was bound to"), lastLine())
+	earth.set({}, "ALT-2")
+	assert(earth.get({}) == "ALT-2" and scenario.bindingActions["ALT-1"] == nil, "old key not released")
+	earth.set({}, "")
+	assert(earth.get({}) == "", "not cleared")
+	scenario.inCombat = true
+	earth.set({}, "ALT-3")
+	scenario.inCombat = false
+	assert(earth.get({}) == "", "bound in combat")
+	assert(opt("appearance", "bind_projection") and opt("appearance", "bind_profile"), "missing controls")
+end)
+step("the profile menu has 'Edit profiles...', opening the options on that tab", function()
+	btn("Profile")._scripts.OnClick(btn("Profile"))
+	local rows = menuRows()
+	local last = rows[#rows]
+	assert(last.entry.text == "Edit profiles...", last.entry.text)
+	scenario.optionsOpened, scenario.optionsTab = nil, nil
+	last._scripts.OnClick(last)
+	assert(scenario.optionsOpened == "TotemicAccord" and scenario.optionsTab == "profiles")
 end)
 step("selftest: every check implemented, nothing pending", function()
 	local before = #output

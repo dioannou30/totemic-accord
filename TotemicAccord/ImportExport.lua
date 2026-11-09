@@ -38,6 +38,7 @@ local SETTING_RULES = {
 	showSwitchMessage = { bool = true },
 	flyoutArrows = { bool = true },
 	vividInitials = { bool = true },
+	showProfileLabel = { bool = true },
 }
 
 local function db()

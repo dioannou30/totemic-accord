@@ -104,6 +104,28 @@ function Keybinds.PendingChanges()
 	return changes
 end
 
+--- Bind one of our buttons to `key` ("" clears it), replacing its previous keys. Says
+--- what the key used to do, if anything. Not in combat (SetBinding is blocked there).
+function Keybinds:Bind(frame, key)
+	if InCombatLockdown() then
+		ns.addon:Log(L.KEYS_COMBAT)
+		return false
+	end
+	local command = Keybinds.Command(frame)
+	for _, old in ipairs({ GetBindingKey(command) }) do
+		SetBinding(old) -- no command: unbind
+	end
+	if key and key ~= "" then
+		local previous = GetBindingAction(key)
+		if previous and previous ~= "" and previous ~= command then
+			ns.addon:Log(L.KEYS_REPLACED, Keybinds.Format(key), GetBindingText(previous, "BINDING_NAME_"))
+		end
+		SetBinding(key, command)
+	end
+	SaveBindings(GetCurrentBindingSet())
+	return true
+end
+
 --- SetBinding is blocked in combat, so this is checked both before asking and again
 --- when the player clicks Apply (they may have entered combat in between).
 function Keybinds:Apply(changes)

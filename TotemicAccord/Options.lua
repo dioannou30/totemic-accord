@@ -180,8 +180,15 @@ local function profilesTab()
 				return ns.Profiles:Label(key) .. (g().profiles[key] and "" or ("  " .. L.OPT_NOT_SET))
 			end,
 		},
+		howTo = { type = "description", order = 12, name = L.OPT_HOWTO },
+		create = {
+			type = "execute", order = 39, name = L.OPT_CREATE, desc = L.OPT_CREATE_DESC,
+			disabled = function() return g().profiles[editKey()] ~= nil end,
+			func = function() ns.Profiles:SaveAs(editKey()) end,
+		},
 		fromBar = {
 			type = "execute", order = 40, name = L.OPT_FROM_BAR, desc = L.OPT_FROM_BAR_DESC,
+			disabled = function() return g().profiles[editKey()] == nil end,
 			func = function() ns.Profiles:SaveAs(editKey()) end,
 		},
 		remove = {
@@ -288,6 +295,15 @@ local function barSelect(order, setting, name, values)
 	}
 end
 
+--- A key-capture control for one of our buttons; Escape clears it.
+local function keybind(order, frame, name)
+	return {
+		type = "keybinding", order = order, name = name,
+		get = function() return (GetBindingKey(ns.Keybinds.Command(frame))) or "" end,
+		set = function(_, key) ns.Keybinds:Bind(frame, key) end,
+	}
+end
+
 local function appearanceTab()
 	local themeValues = {}
 	for _, key in ipairs(ns.Themes.ORDER) do
@@ -345,6 +361,11 @@ local function appearanceTab()
 			get = function() return not settings().minimap.hide end,
 			set = function(_, v) ns.Minimap:SetShown(v) end,
 		},
+		profileLabel = {
+			type = "toggle", order = 25, name = L.OPT_LABEL, desc = L.OPT_LABEL_DESC,
+			get = function() return settings().showProfileLabel end,
+			set = function(_, v) settings().showProfileLabel = v; ns.Bar:Refresh() end,
+		},
 		arrows = {
 			type = "toggle", order = 24, name = L.OPT_ARROWS, desc = L.OPT_ARROWS_DESC,
 			get = function() return settings().flyoutArrows ~= false end,
@@ -356,6 +377,13 @@ local function appearanceTab()
 			type = "execute", order = 32, name = L.OPT_KEYS_APPLY,
 			func = function() ns.Keybinds:ApplySuggested() end,
 		},
+		bind_earth = keybind(41, "TotemicAccordEarth", L.BIND_EARTH),
+		bind_fire = keybind(42, "TotemicAccordFire", L.BIND_FIRE),
+		bind_water = keybind(43, "TotemicAccordWater", L.BIND_WATER),
+		bind_air = keybind(44, "TotemicAccordAir", L.BIND_AIR),
+		bind_action = keybind(45, "TotemicAccordAction", L.BIND_ACTION),
+		bind_projection = keybind(46, "TotemicAccordProjection", L.BIND_PROJECTION),
+		bind_profile = keybind(47, "TotemicAccordProfile", L.BIND_PROFILE),
 	} }
 end
 
@@ -403,8 +431,12 @@ function Options:Init()
 	self.registered = true
 end
 
-function Options:Open()
+--- Open the window, optionally on a tab ("profiles", "sequence", "appearance", "importexport").
+function Options:Open(tab)
 	AceConfigDialog:Open(ADDON)
+	if tab then
+		AceConfigDialog:SelectGroup(ADDON, tab)
+	end
 end
 
 --- Re-draw an open options window after something changed elsewhere (zone switch,

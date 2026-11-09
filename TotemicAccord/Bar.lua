@@ -445,6 +445,9 @@ function Bar:Refresh()
 	self.actionMode = self:ActionMode()
 	self.projection = { ns.Data:Projection() }
 	self.frame.label:SetText(self:LabelText())
+	-- The profile name under the bar is optional (off by default, at Dio's request); the
+	-- Profile button's code and tooltip show the same information.
+	self.frame.label:SetShown(settings().showProfileLabel == true)
 	self:ApplySecure()
 	if visibilityChanged or self.layoutPending then
 		self:Layout()

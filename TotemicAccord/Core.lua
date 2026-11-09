@@ -66,6 +66,7 @@ local CHAR_DEFAULTS = {
 			showSwitchMessage = true,
 			flyoutArrows = true,
 			barOpacity = 0.86,
+			showProfileLabel = false, -- profile name under the bar (Dio: off)
 			vividInitials = false,
 			debug = false,
 			minimap = { hide = false },

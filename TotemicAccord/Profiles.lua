@@ -469,6 +469,9 @@ function Profiles:MenuEntries()
 		entries[#entries + 1] = { kind = "divider" }
 		entries[#entries + 1] = item("captured")
 	end
+	entries[#entries + 1] = { kind = "divider" }
+	entries[#entries + 1] = { kind = "item", text = L.MENU_EDIT,
+		onClick = function() ns.Options:Open("profiles") end }
 	return entries
 end
 
