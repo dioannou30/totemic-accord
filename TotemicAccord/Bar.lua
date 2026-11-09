@@ -74,14 +74,25 @@ local function makeBorder(frame)
 	return b
 end
 
---- SetFont fails (returns false) if the file is missing; fall back to the game font
---- rather than leaving an invisible string. Records failures for /ta selftest.
+--- Addon font files can fail to load on the first attempt during login and succeed a
+--- moment later (DialogueUI, which ships its own fonts on Forever, retries after 0.2s
+--- for the same reason). So: fall back to the game font for now, and restyle the whole
+--- bar again shortly -- a few times at most -- which re-attempts every font.
+local FONT_RETRY_DELAYS = { 0.2, 1, 3 }
+
 local function setFont(fs, path, size, flags)
-	if not fs:SetFont(path, size, flags or "") then
-		Bar.fontFailures = Bar.fontFailures or {}
-		Bar.fontFailures[path] = true
-		local fallback = GameFontNormal:GetFont()
-		fs:SetFont(fallback, size, flags or "")
+	if fs:SetFont(path, size, flags or "") then
+		return
+	end
+	fs:SetFont((GameFontNormal:GetFont()), size, flags or "")
+	local attempt = (Bar.fontRetries or 0) + 1
+	if not Bar.fontRetryScheduled and FONT_RETRY_DELAYS[attempt] then
+		Bar.fontRetryScheduled = true
+		Bar.fontRetries = attempt
+		C_Timer.After(FONT_RETRY_DELAYS[attempt], function()
+			Bar.fontRetryScheduled = false
+			Themes:Apply()
+		end)
 	end
 end
 

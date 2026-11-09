@@ -9,8 +9,8 @@
 
 	Where the element of a totem comes from, best source first:
 	  1. multicast  GetMultiCastTotemSpells(slot) -- the native totem bar's own list.
-	                Authoritative, but the bar only exists once Call of the Elements is
-	                learned (level 20), so it is typically empty before then.
+	                Authoritative. Verified in game: already populated at level 18,
+	                before Call of the Elements, for every element that has a totem.
 	  2. learned    After you drop a totem, GetTotemInfo(slot) says which slot it went
 	                into. We remember that per character. Out of combat only: totem
 	                info is secret in combat.

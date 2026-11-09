@@ -532,6 +532,20 @@ step("slash commands: theme, layout, style, scale, empty, reset, bad values", fu
 	end
 	assert(S.theme == "emerald" and S.layout == "horizontal" and S.point == nil)
 end)
+step("a font that fails at login is retried and then used", function()
+	local earthText = btn("Earth").text
+	local fails, used = 2, nil
+	earthText.SetFont = function(_, path)
+		if path:find("Manrope") and fails > 0 then fails = fails - 1; return false end
+		used = path
+		return true
+	end
+	B.fontRetries, B.fontRetryScheduled = 0, false
+	ns.Themes:Apply() -- fails once, schedules a retry (the stub timer runs it at once)
+	assert(B.fontRetries >= 1, "no retry scheduled")
+	assert(used and used:find("Manrope%-Bold"), "font not used after retry: " .. tostring(used))
+	earthText.SetFont = nil
+end)
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil

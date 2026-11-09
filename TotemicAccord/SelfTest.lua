@@ -191,11 +191,21 @@ function SelfTest:Run()
 
 	-- Totemic Projection: the spellID still has to be confirmed in game, so look it
 	-- up by name and report whatever the client says.
+	-- By name only works once learned. The spellbook does not list unlearned spells on
+	-- Forever, so also probe candidate IDs directly: C_Spell resolves any spell in the
+	-- client's data. 108287 is Totemic Projection's ID in later WoW versions.
 	local projName = spellName("Totemic Projection")
 	if projName then
-		info(L.TEST_PROJECTION, ("found by name: %s"):format(tostring(projName)))
-	else
-		info(L.TEST_PROJECTION, "not found by name -- VERIFY the exact spell name in game")
+		info(L.TEST_PROJECTION, ("known by name: %s"):format(tostring(projName)))
+	end
+	for _, id in ipairs({ 108287 }) do
+		info(L.TEST_PROJECTION, ("spellID %d resolves to %s, known=%s"):format(
+			id, tostring(spellName(id)), tostring(spellKnown(id))))
+	end
+	for name, id in pairs(ns.Data.spellbook or {}) do
+		if name:find("Projection") or name:find("Totemic") then
+			info("Spellbook match", ("%s (%s)"):format(name, tostring(id)))
+		end
 	end
 
 	-- Totem slots, from the constants rather than hardcoded numbers.
@@ -265,17 +275,21 @@ function SelfTest:Run()
 	else
 		fail("Bar built", InCombatLockdown() and "waiting for combat to end" or "not created")
 	end
-	-- SetFont reports failure for a bad path; the bar falls back to the game font, so a
-	-- broken font would otherwise only be visible as "looks a bit off".
+	-- Probe each font now, on a scratch font string, rather than trusting what happened
+	-- at login: addon fonts can fail on the first attempt and load a moment later.
+	SelfTest.probe = SelfTest.probe or UIParent:CreateFontString(nil, "OVERLAY")
 	local bad = {}
-	for path in pairs(Bar.fontFailures or {}) do
-		bad[#bad + 1] = path:match("[^\\]+$")
+	for _, key in ipairs({ "initials", "heading", "mono" }) do
+		local path = ns.Themes.FONTS[key]
+		SelfTest.probe:SetFont((GameFontNormal:GetFont()), 10, "")
+		if not SelfTest.probe:SetFont(path, 10, "") then
+			bad[#bad + 1] = path:match("[^\\]+$")
+		end
 	end
 	if #bad == 0 then
-		pass("Fonts loaded", "Manrope, JetBrains Mono")
+		pass("Fonts loaded", ("Manrope, JetBrains Mono (bar retried %d time(s) at login)"):format(Bar.fontRetries or 0))
 	else
-		table.sort(bad)
-		fail("Fonts loaded", "fell back to the game font for " .. table.concat(bad, ", "))
+		fail("Fonts loaded", "cannot load " .. table.concat(bad, ", "))
 	end
 
 	pending(L.TEST_PROFILE_SPELLS, "M5")
