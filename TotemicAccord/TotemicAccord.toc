@@ -23,6 +23,7 @@ Data.lua
 Themes.lua
 Keybinds.lua
 Bar.lua
+Menu.lua
 Flyout.lua
 Sequence.lua
 Profiles.lua

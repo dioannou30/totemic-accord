@@ -404,42 +404,49 @@ end
 
 -- ------------------------------------------------------------------ chooser menu
 
-function Profiles:OpenMenu(owner)
-	MenuUtil.CreateContextMenu(owner, function(_, root)
-		root:CreateTitle(L.MENU_TITLE)
-		local function isManual(key) return db().manual == key end
-		local function pin(key) self:Pin(key) end
-		root:CreateRadio((L.MENU_AUTO):format(self:Label(self:Resolve())),
-			function() return db().manual == nil end, function() self:Auto() end)
+--- Menu entries: "Auto (currently: X)", then profiles grouped General / per loadout,
+--- then the captured native bar. Drawn by Menu.lua in the bar's theme.
+function Profiles:MenuEntries()
+	local manual = db().manual
+	local entries = {
+		{ kind = "item", text = (L.MENU_AUTO):format(self:Label(self:Resolve())),
+			checked = manual == nil, onClick = function() self:Auto() end },
+	}
+	local keys = {}
+	for key in pairs(db().profiles) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys)
+	local groups, order = {}, {}
+	for _, key in ipairs(keys) do
+		local kind, id = Profiles.Parse(key)
+		local group = kind == "global" and L.MENU_GENERAL
+			or (db().loadoutNames[id] or (L.PROFILE_LOADOUT):format(id))
+		if not groups[group] then
+			groups[group] = {}
+			order[#order + 1] = group
+		end
+		table.insert(groups[group], key)
+	end
+	local function item(key)
+		return { kind = "item", text = self:Label(key), checked = manual == key,
+			onClick = function() self:Pin(key) end }
+	end
+	for _, group in ipairs(order) do
+		entries[#entries + 1] = { kind = "title", text = group }
+		for _, key in ipairs(groups[group]) do
+			entries[#entries + 1] = item(key)
+		end
+	end
+	if self:Exists("captured") then
+		entries[#entries + 1] = { kind = "divider" }
+		entries[#entries + 1] = item("captured")
+	end
+	return entries
+end
 
-		local keys = {}
-		for key in pairs(db().profiles) do
-			keys[#keys + 1] = key
-		end
-		table.sort(keys)
-		local groups, order = {}, {}
-		for _, key in ipairs(keys) do
-			local kind, id = Profiles.Parse(key)
-			local group = kind == "global" and L.MENU_GENERAL
-				or (db().loadoutNames[id] or (L.PROFILE_LOADOUT):format(id))
-			if not groups[group] then
-				groups[group] = {}
-				order[#order + 1] = group
-			end
-			table.insert(groups[group], key)
-		end
-		for _, group in ipairs(order) do
-			root:CreateDivider()
-			root:CreateTitle(group)
-			for _, key in ipairs(groups[group]) do
-				root:CreateRadio(self:Label(key), isManual, pin, key)
-			end
-		end
-		if self:Exists("captured") then
-			root:CreateDivider()
-			root:CreateRadio(L.PROFILE_CAPTURED, isManual, pin, "captured")
-		end
-	end)
+function Profiles:OpenMenu(owner)
+	ns.Menu:Toggle(owner, self:MenuEntries())
 end
 
 -- ------------------------------------------------------------------ wiring

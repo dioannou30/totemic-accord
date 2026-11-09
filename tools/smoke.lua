@@ -215,6 +215,9 @@ MenuUtil = { CreateContextMenu = function(owner, generator)
 	scenario.menu = root.items
 end }
 
+UISpecialFrames = {}
+tinsert = table.insert
+
 -- M8: the native totem bar's action slots
 C_ActionBar = { GetMultiCastBarIndex = function() return 13 end }
 NUM_ACTIONBAR_BUTTONS, NUM_MULTI_CAST_BUTTONS_PER_PAGE = 12, 4
@@ -320,6 +323,7 @@ registered["AceEvent-3.0"] = {
 	Embed = function(lib, target)
 		target.events = {}
 		function target:RegisterEvent(ev, handler) self.events[ev] = handler end
+		function target:UnregisterEvent(ev) self.events[ev] = nil end
 		function target:RegisterMessage(msg, handler)
 			lib.bus[msg] = lib.bus[msg] or {}
 			lib.bus[msg][self] = handler
@@ -371,7 +375,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -858,19 +862,52 @@ step("on-screen message can be turned off; the chat line stays", function()
 	ns.addon:OnSlashCommand("message on")
 	P.Flash = realFlash
 end)
-step("Profile button opens the chooser; picking pins, Auto unpins", function()
-	btn("Profile")._scripts.OnClick(btn("Profile"))
-	local m = scenario.menu
-	assert(m and m[2].kind == "radio" and m[2].text:find("^Auto %(currently: "), m and m[2] and m[2].text)
-	local pick
-	for _, item in ipairs(m) do
-		if item.kind == "radio" and item.data == "global:dungeon" then pick = item end
+local function menuRows()
+	local rows = {}
+	for _, r in ipairs(ns.Menu.frame.rows) do
+		if r._shown then rows[#rows + 1] = r end
 	end
-	assert(pick, "global:dungeon not offered")
-	pick.select(pick.data)
+	return rows
+end
+step("Profile button opens the themed chooser; picking pins, Auto unpins", function()
+	btn("Profile")._scripts.OnClick(btn("Profile"))
+	local rows = menuRows()
+	assert(ns.Menu.frame._shown and rows[1].entry.text:find("^Auto %(currently: "), rows[1].entry.text)
+	assert(rows[1].entry.checked, "Auto should be checked while not pinned")
+	local pick
+	for _, r in ipairs(rows) do
+		if r.entry.kind == "item" and r.entry.text == "Global · Dungeon" then pick = r end
+	end
+	assert(pick, "Global · Dungeon not offered")
+	pick._scripts.OnClick(pick)
+	assert(not ns.Menu.frame._shown, "menu stayed open")
 	assert(G.manual == "global:dungeon" and P.applied == "global:dungeon")
-	m[2].select()
+	btn("Profile")._scripts.OnClick(btn("Profile"))
+	rows = menuRows()
+	rows[1]._scripts.OnClick(rows[1])
 	assert(G.manual == nil)
+end)
+step("the chooser uses the theme: panel, border, accent for the selected entry", function()
+	ns.Themes:Set("mocha")
+	btn("Profile")._scripts.OnClick(btn("Profile"))
+	local t = ns.Themes:Current()
+	local panel, accent = { ns.Themes.RGB(t.panel) }, { ns.Themes.RGB(t.accent) }
+	assert(ns.Menu.frame.bg._color[1] == panel[1] and ns.Menu.frame.bg._color[3] == panel[3], "panel colour")
+	local c = menuRows()[1].text._textColor
+	assert(c[1] == accent[1] and c[2] == accent[2], "selected entry not in accent colour")
+	ns.Menu:Close()
+	ns.Themes:Set("emerald")
+end)
+step("the chooser closes on a second click and on a click elsewhere", function()
+	local pb = btn("Profile")
+	pb._scripts.OnClick(pb)
+	pb._scripts.OnClick(pb)
+	assert(not ns.Menu.frame._shown, "second click should close")
+	pb._scripts.OnClick(pb)
+	assert(ns.Menu.events.GLOBAL_MOUSE_DOWN, "not listening for outside clicks")
+	ns.Menu:OnGlobalMouseDown() -- the fake IsMouseOver is false: a click elsewhere
+	assert(not ns.Menu.frame._shown and ns.Menu.events.GLOBAL_MOUSE_DOWN == nil)
+	assert(UISpecialFrames[1] == "TotemicAccordMenu", "Escape won't close it")
 end)
 step("deleting the pinned profile unpins and falls back", function()
 	ns.addon:OnSlashCommand("profile global:dungeon")
@@ -1285,7 +1322,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end
