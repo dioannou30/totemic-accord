@@ -45,10 +45,13 @@ C_Spell = {
 	end,
 }
 
-function UnitClass() return "Shaman", scenario.class end
+function UnitClass() return "Shaman", scenario.class, 7 end
+function GetNumSpecializations() return 0 end
+function IsPlayerInitialSpec() return true end
+function GetSpecializationInfoForClassID(_, i) return 1488 + i, "Spec" .. i end
 function GetBuildInfo() return "1.60.1", "70862", "Nov 7 2026", 16001 end
 function UnitLevel() return 60 end
-C_SpecializationInfo = {}
+C_SpecializationInfo = { GetNumSpecializationsForClassID = function() return 1 end }
 function C_SpecializationInfo.GetSpecialization() return scenario.spec end
 function C_SpecializationInfo.GetSpecializationInfo(i)
 	local t = { [1] = { 262, "Elemental" }, [2] = { 263, "Enhancement" }, [3] = { 264, "Restoration" } }

@@ -150,6 +150,25 @@ function SelfTest:Run()
 		end
 	end
 
+	-- Which specs does this client offer a Shaman at all? The first in-game run reported
+	-- index 1 / specID 1489 / "Shaman" -- a class-named starter spec, not Elemental,
+	-- Enhancement or Restoration. Blizzard's IsInitialSpec is "index > GetNumSpecializations()",
+	-- so these numbers decide whether profiles can key on spec at all (M5).
+	local _, _, classID = UnitClass("player")
+	local numSpecs = GetNumSpecializations and GetNumSpecializations()
+	local initial = IsPlayerInitialSpec and IsPlayerInitialSpec()
+	info("Spec system", ("level %s, GetNumSpecializations=%s, IsPlayerInitialSpec=%s"):format(
+		tostring(UnitLevel("player")), tostring(numSpecs), tostring(initial)))
+	local forClass = Spec and Spec.GetNumSpecializationsForClassID
+		and Spec.GetNumSpecializationsForClassID(classID) or 0
+	if forClass == 0 then
+		info("Class specs", ("none listed for classID %s"):format(tostring(classID)))
+	end
+	for i = 1, forClass do
+		local id, name = GetSpecializationInfoForClassID(classID, i)
+		info("Class spec " .. i, ("specID %s, %s"):format(tostring(id), tostring(name)))
+	end
+
 	-- Instance type: drives the situation half of every profile key.
 	local inInstance, instanceType = IsInInstance()
 	if instanceType then
