@@ -15,11 +15,11 @@ local L = {}
 -- Chat / general
 L.CHAT_PREFIX = "[Totemic Accord]"
 L.SLASH_HELP_HEADER = "Commands:"
-L.LOADED = "loaded. Type /ta for options."
+L.LOADED = "loaded. Type /ta for commands."
 L.NOT_SHAMAN = "Totemic Accord is for Shamans; staying out of the way on this character."
 
 -- Slash command descriptions
-L.CMD_OPTIONS = "/ta - open options"
+L.CMD_OPTIONS = "/ta - this help (an options window arrives in M9)"
 L.CMD_LOCK = "/ta lock - lock the bar in place"
 L.CMD_UNLOCK = "/ta unlock - unlock the bar so it can be dragged"
 L.CMD_AUTO = "/ta auto - return to automatic profile switching"

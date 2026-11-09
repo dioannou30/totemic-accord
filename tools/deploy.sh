@@ -109,7 +109,8 @@ if [ ! -d "$flavor_dir" ]; then
   echo "$flavor not found in: $wow" >&2
   echo >&2
   echo "Flavor folders that ARE there:" >&2
-  found=$(find "$wow" -maxdepth 1 -type d -name '_*_' -printf '  %f\n' 2>/dev/null)
+  # No -printf: BSD find on macOS lacks it.
+  found=$(find "$wow" -maxdepth 1 -type d -name '_*_' 2>/dev/null | sed 's|.*/|  |')
   echo "${found:-  (none)}" >&2
   echo >&2
   echo "Totemic Accord targets WoW Forever, which installs as $flavor." >&2

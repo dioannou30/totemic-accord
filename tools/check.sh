@@ -29,7 +29,9 @@ done
 PYTHON=""
 for c in python3 python; do have "$c" && { PYTHON="$c"; break; }; done
 
-mapfile -t LUA_FILES < <(find TotemicAccord -name "*.lua" -not -path "*/Libs/*" | sort)
+# No mapfile: macOS still ships bash 3.2.
+LUA_FILES=()
+while IFS= read -r f; do LUA_FILES+=("$f"); done < <(find TotemicAccord -name "*.lua" -not -path "*/Libs/*" | sort)
 
 failures=()
 

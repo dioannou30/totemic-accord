@@ -8,8 +8,8 @@
 	Call of the Elements and Totemic Projection) so they come out of one command instead
 	of six /dump calls typed in the middle of the game.
 
-	Everything here reads; nothing writes. Safe to run any time, including in combat --
-	though values that are secret in combat are reported as such rather than guessed.
+	Everything here reads; nothing writes. Not yet checked against combat-time secret
+	values -- run it out of combat.
 ]]
 
 local ADDON, ns = ...
@@ -119,8 +119,10 @@ function SelfTest:Run()
 
 	-- ---------------------------------------------------------------- VERIFY values
 	-- Interface number: the TOC claims 16001; this is the client's own answer.
+	-- GetAddOnMetadata does not expose the Interface field (it returns nil), so the
+	-- TOC's value comes from the dedicated API instead.
 	local _, build, _, iface = GetBuildInfo()
-	local tocIface = C_AddOns.GetAddOnMetadata(ADDON, "Interface")
+	local tocIface = C_AddOns.GetAddOnInterfaceVersion(ADDON)
 	if tostring(iface) == tostring(tocIface) then
 		pass(L.TEST_INTERFACE, ("%s (build %s) matches the TOC"):format(tostring(iface), tostring(build)))
 	else
@@ -130,13 +132,22 @@ function SelfTest:Run()
 	end
 
 	-- Spec: index plus the stable specID, which is what profiles should key on.
-	local specIndex = GetSpecialization and GetSpecialization() or nil
-	if specIndex then
-		local specID, specName = GetSpecializationInfo(specIndex)
-		pass(L.TEST_SPEC, ("index %d, specID %s, %s"):format(
-			specIndex, tostring(specID), tostring(specName)))
+	-- Forever only has the namespaced form; Blizzard's own UI never calls a bare
+	-- GetSpecialization(). Distinguish "API missing" from "no spec chosen yet" so a
+	-- failure here says which it is.
+	local Spec = C_SpecializationInfo
+	if not (Spec and Spec.GetSpecialization) then
+		fail(L.TEST_SPEC, "C_SpecializationInfo.GetSpecialization is missing")
 	else
-		fail(L.TEST_SPEC, "GetSpecialization() returned nothing")
+		local specIndex = Spec.GetSpecialization()
+		if specIndex and specIndex > 0 then
+			local specID, specName = Spec.GetSpecializationInfo(specIndex)
+			pass(L.TEST_SPEC, ("index %d, specID %s, %s"):format(
+				specIndex, tostring(specID), tostring(specName)))
+		else
+			fail(L.TEST_SPEC, ("no spec (returned %s) -- character level %s"):format(
+				tostring(specIndex), tostring(UnitLevel("player"))))
+		end
 	end
 
 	-- Instance type: drives the situation half of every profile key.

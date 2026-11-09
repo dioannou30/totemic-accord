@@ -29,10 +29,10 @@ C_AddOns = {
 		local meta = {
 			Title = "Totemic Accord",
 			Version = "0.1.0",
-			Interface = "16001",
 		}
 		return meta[field]
 	end,
+	GetAddOnInterfaceVersion = function() return 16001 end,
 }
 
 C_Spell = {
@@ -47,8 +47,10 @@ C_Spell = {
 
 function UnitClass() return "Shaman", scenario.class end
 function GetBuildInfo() return "1.60.1", "70862", "Nov 7 2026", 16001 end
-function GetSpecialization() return scenario.spec end
-function GetSpecializationInfo(i)
+function UnitLevel() return 60 end
+C_SpecializationInfo = {}
+function C_SpecializationInfo.GetSpecialization() return scenario.spec end
+function C_SpecializationInfo.GetSpecializationInfo(i)
 	local t = { [1] = { 262, "Elemental" }, [2] = { 263, "Enhancement" }, [3] = { 264, "Restoration" } }
 	local e = t[i]
 	if e then return e[1], e[2] end

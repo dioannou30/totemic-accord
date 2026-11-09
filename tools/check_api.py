@@ -176,11 +176,12 @@ def build_allowlist(reference: Path) -> Allowlist:
         if ns_match:
             ns = ns_match.group(1)
             allow.namespaces.setdefault(ns, set()).update(funcs)
-            # A namespaced system very often ALSO keeps a legacy bare global
-            # alias (GetSpecialization is documented under C_SpecializationInfo
-            # but is a plain global in game, as the build prompt confirms). The
-            # docs carry no flag for that, so accept both spellings.
-            allow.globals.update(funcs)
+            # Deliberately NOT also accepted as bare globals. An earlier version did,
+            # on the assumption that namespaced functions keep legacy global aliases;
+            # that whitelisted ~4000 names with no evidence, including
+            # GetSpecialization, which does not exist on Forever (Blizzard's own code
+            # only ever calls C_SpecializationInfo.GetSpecialization). A bare alias
+            # that really exists is still accepted via source 3 below.
         else:
             allow.globals.update(funcs)
         allow.events.update(RE_DOC_EVENT.findall(text))
