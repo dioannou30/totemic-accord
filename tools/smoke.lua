@@ -185,6 +185,15 @@ scenario.bindings = {}
 function GetBindingKey(cmd) return scenario.bindings[cmd] end
 C_Spell.GetSpellTexture = function(id) return "icon:" .. tostring(id) end
 
+-- M5 prep: talent loadouts
+C_ClassTalents = {
+	GetConfigIDsBySpecID = function() return { 101, 102 } end,
+	GetLastSelectedSavedConfigID = function() return 102 end,
+	GetActiveConfigID = function() return 900 end,
+	GetStarterBuildActive = function() return false end,
+}
+C_Traits = { GetConfigInfo = function(id) return ({ [101] = { name = "Enh" }, [102] = { name = "Resto" } })[id] end }
+
 -- M4: bindings and the confirmation popup
 NAME_BY_ID[437009] = "Totemic Projection"
 scenario.bindingActions = {}  -- key -> command

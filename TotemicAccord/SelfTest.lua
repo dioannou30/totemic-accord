@@ -169,6 +169,27 @@ function SelfTest:Run()
 		info("Class spec " .. i, ("specID %s, %s"):format(tostring(id), tostring(name)))
 	end
 
+	-- Talent loadouts: the chosen replacement for the spec axis in profile keys (M5).
+	-- Profiles will key on the saved loadout's config ID and show its name.
+	local specIDForLoadouts = Spec and Spec.GetSpecialization and Spec.GetSpecialization()
+		and Spec.GetSpecializationInfo(Spec.GetSpecialization())
+	if specIDForLoadouts and C_ClassTalents then
+		local ok, ids = pcall(C_ClassTalents.GetConfigIDsBySpecID, specIDForLoadouts)
+		local selected = C_ClassTalents.GetLastSelectedSavedConfigID(specIDForLoadouts)
+		local names = {}
+		for _, id in ipairs(ok and ids or {}) do
+			local cfg = C_Traits.GetConfigInfo(id)
+			names[#names + 1] = ("%s%s (%d)"):format(id == selected and "*" or "",
+				cfg and cfg.name or "?", id)
+		end
+		info("Talent loadouts", ("%s; active config %s, starter build %s"):format(
+			#names > 0 and table.concat(names, ", ") or "none saved",
+			tostring(C_ClassTalents.GetActiveConfigID()),
+			tostring(C_ClassTalents.GetStarterBuildActive())))
+	else
+		fail("Talent loadouts", "C_ClassTalents unavailable")
+	end
+
 	-- Instance type: drives the situation half of every profile key.
 	local inInstance, instanceType = IsInInstance()
 	if instanceType then
