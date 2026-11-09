@@ -121,6 +121,7 @@ end
 function addon:OnEnable()
 	ns.Data:Init()
 	ns.Bar:Init()
+	ns.Profiles:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
 	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
@@ -142,9 +143,61 @@ function addon:PrintHelp()
 	for _, line in ipairs({
 		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
 		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_PROFILES, L.CMD_SAVE, L.CMD_DELETE, L.CMD_SET, L.CMD_MESSAGE,
 		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
 		print("  " .. line)
+	end
+end
+
+--- /ta profile|save|delete <key>
+function addon:ProfileCommand(cmd, rest)
+	local P = ns.Profiles
+	local key = P:NormalizeKey(rest)
+	if not key then
+		self:Log(L.PROFILE_BAD_KEY, rest)
+		return
+	end
+	local ok
+	if cmd == "profile" then
+		ok = P:Pin(key)
+	elseif cmd == "save" then
+		ok = P:SaveAs(key)
+	else
+		ok = P:Delete(key)
+	end
+	local msg = cmd == "profile" and L.PROFILE_PINNED or cmd == "save" and L.PROFILE_SAVED or L.PROFILE_DELETED
+	self:Log(ok and msg or L.PROFILE_MISSING, P:Label(key))
+end
+
+function addon:ListProfiles()
+	local P = ns.Profiles
+	self:Log(L.PROFILE_LIST_HEADER, P:Label(P.applied), self.db.global.manual and L.TIP_MANUAL or L.TIP_AUTO)
+	for _, key in ipairs(P:Chain()) do
+		print(("  %s %s"):format(P:Exists(key) and "|cff0cd29d+|r" or "|cff8a929c-|r", P:Label(key)))
+	end
+end
+
+--- /ta set <element> <code|name|none> -- edits the applied profile. Stand-in for the
+--- flyouts (M6), which call the same Profiles:SetElement.
+function addon:SetCommand(rest)
+	local element, query = (rest or ""):match("^(%S+)%s*(.*)$")
+	element = element and element:lower()
+	if not (element and ns.Data.ELEMENT_BY_KEY[element]) then
+		self:Log(L.SET_USAGE)
+		return
+	end
+	if query:lower() == "none" then
+		ns.Profiles:SetElement(element, nil)
+		return
+	end
+	local t = ns.Data:FindInElement(element, query)
+	if not t then
+		self:Log(L.SET_UNKNOWN, query, element)
+		return
+	end
+	if ns.Profiles:SetElement(element, t.name) then
+		self:Log(L.SET_DONE, element, t.name, ns.Profiles:Label(ns.Profiles.applied))
 	end
 end
 
@@ -199,8 +252,19 @@ function addon:OnSlashCommand(input)
 		else
 			self:Log(L.SETTING_INVALID, cmd, c.choices)
 		end
-	elseif cmd == "auto" or cmd == "profile" then
-		self:NotYet("M5")
+	elseif cmd == "auto" then
+		ns.Profiles:Auto()
+		self:Log(L.PROFILE_AUTO_ON, ns.Profiles:Label(ns.Profiles:Resolve()))
+	elseif cmd == "profile" or cmd == "save" or cmd == "delete" then
+		self:ProfileCommand(cmd, rest)
+	elseif cmd == "profiles" then
+		self:ListProfiles()
+	elseif cmd == "set" then
+		self:SetCommand(rest)
+	elseif cmd == "message" then
+		local on = rest:lower() ~= "off"
+		self.db.global.settings.showSwitchMessage = on
+		self:Log(L.SETTING_SET, cmd, on and "on" or "off")
 	elseif cmd == "capture" then
 		self:NotYet("M8")
 	elseif cmd == "macro" then

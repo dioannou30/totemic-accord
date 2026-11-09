@@ -23,4 +23,5 @@ Data.lua
 Themes.lua
 Keybinds.lua
 Bar.lua
+Profiles.lua
 SelfTest.lua

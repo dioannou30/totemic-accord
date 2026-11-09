@@ -344,7 +344,31 @@ function SelfTest:Run()
 		info("Keybinds", #keys > 0 and table.concat(keys, ", ") or "none -- /ta keys or the Key Bindings menu")
 	end
 
-	pending(L.TEST_PROFILE_SPELLS, "M5")
+	-- ---------------------------------------------------------------- M5: profiles
+	local P = ns.Profiles
+	local chain = {}
+	for _, key in ipairs(P:Chain()) do
+		chain[#chain + 1] = (P:Exists(key) and "" or "-") .. P:Label(key)
+	end
+	info("Profile", ("%s (%s)%s"):format(P:Label(P.applied),
+		addon.db.global.manual and "manual" or "auto",
+		P.queued and (" -> " .. P:Label(P.queued) .. " after combat") or ""))
+	info("Resolution", table.concat(chain, " > ") .. "  (- = not set)")
+	local unknown, count = {}, 0
+	for key, profile in pairs(addon.db.global.profiles) do
+		count = count + 1
+		for element, t in pairs(profile) do
+			if not ns.Data:FindTotem(t.name) then
+				unknown[#unknown + 1] = ("%s %s: %s"):format(P:Label(key), element, t.name)
+			end
+		end
+	end
+	table.sort(unknown)
+	if #unknown == 0 then
+		pass(L.TEST_PROFILE_SPELLS, ("%d profile(s)"):format(count))
+	else
+		fail(L.TEST_PROFILE_SPELLS, "not known: " .. table.concat(unknown, "; "))
+	end
 	pending("Native bar sync buttons", "M8")
 	pending(L.TEST_MACRO_LENGTH, "M7")
 	pending(L.TEST_MINIMAP, "M9")

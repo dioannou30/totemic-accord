@@ -256,6 +256,27 @@ function Data:Discover()
 	return totems
 end
 
+--- A discovered totem by exact spell name, from any element.
+function Data:FindTotem(name)
+	for _, list in pairs(self.totems or {}) do
+		for _, t in ipairs(list) do
+			if t.name == name then
+				return t
+			end
+		end
+	end
+end
+
+--- A discovered totem of one element by its code ("SS") or name, case-insensitive.
+function Data:FindInElement(elementKey, query)
+	query = (query or ""):lower()
+	for _, t in ipairs(self:GetTotems(elementKey)) do
+		if t.code:lower() == query or t.name:lower() == query or baseName(t.name):lower() == query then
+			return t
+		end
+	end
+end
+
 --- Known totems for an element key, in name order.
 function Data:GetTotems(key)
 	return self.totems and self.totems[key] or {}

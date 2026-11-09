@@ -122,14 +122,9 @@ end
 
 -- ------------------------------------------------------------------ state
 
---- Which totem each element shows. M5 replaces this with profile resolution; until
---- then it is the first totem discovery knows for the element.
+--- Which totem each element shows: the applied profile's (Profiles.lua).
 function Bar:ResolveTotems()
-	local out = {}
-	for _, e in ipairs(ns.Data.ELEMENTS) do
-		out[e.key] = ns.Data:GetTotems(e.key)[1]
-	end
-	return out
+	return ns.Profiles:DisplayedTotems()
 end
 
 --- "cote" or "seq". Auto picks Call of the Elements once it is learned.
@@ -190,6 +185,12 @@ function Bar:CreateButton(spec)
 	-- Hooks, not SetScript: these are secure buttons and we only observe.
 	b:HookScript("OnEnter", function(btn) Bar:OnEnterButton(btn) end)
 	b:HookScript("OnLeave", function(btn) Bar:OnLeaveButton(btn) end)
+	if spec.kind == "profile" then
+		-- Not a casting button: open the chooser once per click (on release), also
+		-- when clicked through its keybind.
+		b:RegisterForClicks("AnyUp")
+		b:HookScript("OnClick", function(btn) ns.Profiles:OpenMenu(btn) end)
+	end
 	return b
 end
 
@@ -413,13 +414,26 @@ function Bar:Refresh()
 	end
 	self.actionMode = self:ActionMode()
 	self.projection = { ns.Data:Projection() }
-	self.frame.label:SetText(L.BAR_PREVIEW)
+	self.frame.label:SetText(self:LabelText())
 	self:ApplySecure()
 	if visibilityChanged or self.layoutPending then
 		self:Layout()
 	end
 	Themes:Apply()
 	self:UpdateKeys()
+end
+
+--- "Profile name", or "Old -> New" while a switch waits for combat to end.
+function Bar:LabelText()
+	local P = ns.Profiles
+	if not P.applied and not P.queued then
+		return L.BAR_PREVIEW
+	end
+	local text = P:Label(P.applied)
+	if P.queued then
+		text = text .. " -> " .. P:Label(P.queued)
+	end
+	return text
 end
 
 --- What each secure button should do: { type, spell } or nil for nothing.
@@ -473,9 +487,10 @@ local function faceText(b, mode)
 	elseif kind == "action" then
 		return mode == "cote" and L.ACTION_COTE or L.ACTION_SEQ
 	elseif kind == "projection" then
-		return L.PROJECTION_SHORT
+		-- From the spell's real name: Forever renamed Totemic Projection to Totemic Call.
+		return Bar.projection and ns.Data.Abbreviate(Bar.projection[1]) or L.PROJECTION_SHORT
 	end
-	return L.PROFILE_CODE_GLOBAL
+	return ns.Profiles:ShortCode(ns.Profiles.applied)
 end
 
 --- Icon for Blizzard-icon style, or nil to keep text.
@@ -609,7 +624,13 @@ function Bar:OnEnterButton(b)
 	elseif kind == "projection" then
 		GameTooltip:SetText(L.TIP_PROJECTION_UNKNOWN)
 	else
-		GameTooltip:SetText(L.TIP_PROFILE)
+		local P = ns.Profiles
+		GameTooltip:SetText(P:Label(P.applied))
+		GameTooltip:AddLine(ns.addon.db.global.manual and L.TIP_MANUAL or L.TIP_AUTO, 1, 1, 1)
+		if P.queued then
+			GameTooltip:AddLine((L.TIP_QUEUED):format(P:Label(P.queued)), 1, 0.8, 0.3)
+		end
+		GameTooltip:AddLine(L.TIP_PROFILE, 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end

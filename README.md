@@ -3,8 +3,8 @@
 A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
 16001), with profiles that switch **automatically by spec and situation**.
 
-> Status: **M4 (casting + keybinds) built, awaiting in-game verification.** Element and
-> Projection buttons are wired to cast and keybinds are declared. Profiles (M5) next.
+> Status: **M5 (profiles) built, awaiting in-game verification.** Profiles switch by talent
+> loadout and situation, with manual pinning and an in-combat queue. Flyouts (M6) next.
 > See `docs/CLAUDE_CODE_PROMPT.md` for the full spec and `docs/decisions.md` for the log.
 
 Other Forever totem bars exist; none of them switches totem sets automatically by

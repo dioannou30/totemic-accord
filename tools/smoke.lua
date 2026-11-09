@@ -159,6 +159,8 @@ local function newWidget(name)
 	function methods:RegisterForClicks(...) self._clicks = { ... } end
 	function methods:CreateTexture() return newWidget() end
 	function methods:CreateFontString() return newWidget() end
+	function methods:CreateAnimationGroup() return newWidget() end
+	function methods:CreateAnimation() return newWidget() end
 	-- Only Capitalized names are faked as no-op methods (all WoW widget methods are);
 	-- our own fields are lowercase and must read as nil when unset.
 	return setmetatable(w, { __index = function(_, k)
@@ -188,11 +190,25 @@ C_Spell.GetSpellTexture = function(id) return "icon:" .. tostring(id) end
 -- M5 prep: talent loadouts
 C_ClassTalents = {
 	GetConfigIDsBySpecID = function() return { 101, 102 } end,
-	GetLastSelectedSavedConfigID = function() return 102 end,
+	-- nil = no saved loadout, which is what the level-18 test character really has.
+	GetLastSelectedSavedConfigID = function() return scenario.loadout end,
 	GetActiveConfigID = function() return 900 end,
 	GetStarterBuildActive = function() return false end,
 }
 C_Traits = { GetConfigInfo = function(id) return ({ [101] = { name = "Enh" }, [102] = { name = "Resto" } })[id] end }
+
+-- M5: the context menu records what it was asked to show
+scenario.menu = nil
+MenuUtil = { CreateContextMenu = function(owner, generator)
+	local root = { items = {} }
+	function root:CreateTitle(t) table.insert(self.items, { kind = "title", text = t }) end
+	function root:CreateDivider() table.insert(self.items, { kind = "divider" }) end
+	function root:CreateRadio(t, isSel, setSel, data)
+		table.insert(self.items, { kind = "radio", text = t, isSelected = isSel, select = setSel, data = data })
+	end
+	generator(owner, root)
+	scenario.menu = root.items
+end }
 
 -- M4: bindings and the confirmation popup
 NAME_BY_ID[437009] = "Totemic Projection"
@@ -308,7 +324,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Profiles.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -674,6 +690,157 @@ step("keybinds are never changed in combat", function()
 	B:UpdateKeys()
 end)
 
+realPrint("\nProfiles (M5):")
+local P = ns.Profiles
+local G = ns.addon.db.global
+local function lastLine() return output[#output] or "" end
+local function enter(instance)
+	scenario.instance = instance
+	P:Schedule("ZONE_CHANGED_NEW_AREA") -- the stub timer fires immediately
+end
+local function earthSpell() return btn("Earth"):GetAttribute("spell") end
+step("fresh character: no profile, bar previews first known totems", function()
+	scenario.instance, scenario.loadout = "none", nil
+	assert(next(G.profiles) == nil and P.applied == nil)
+	assert(btn("Profile").text._text == "--\n--", tostring(btn("Profile").text._text))
+	assert(B.frame.label._text:find("Preview"), B.frame.label._text)
+end)
+step("/ta set creates the Global default and edits it", function()
+	ns.addon:OnSlashCommand("set earth SS")
+	assert(G.profiles.global and G.profiles.global.earth.name == "Stoneskin Totem")
+	assert(P.applied == "global" and earthSpell() == "Stoneskin Totem", tostring(earthSpell()))
+	assert(btn("Profile").text._text == "ALL\nDEF")
+	assert(B.frame.label._text == "Global default", B.frame.label._text)
+end)
+step("bad keys, unknown totems and edits in combat are refused", function()
+	ns.addon:OnSlashCommand("save banana")
+	assert(lastLine():find("Unknown profile key"), lastLine())
+	ns.addon:OnSlashCommand("set earth ZZ")
+	assert(lastLine():find("No known"), lastLine())
+	scenario.inCombat = true
+	ns.addon:OnSlashCommand("set earth EB")
+	assert(lastLine():find("in combat"), lastLine())
+	scenario.inCombat = false
+	assert(G.profiles.global.earth.name == "Stoneskin Totem")
+end)
+step("a Global dungeon profile takes over on entering a dungeon", function()
+	ns.addon:OnSlashCommand("save global:dungeon")
+	G.profiles["global:dungeon"].earth = { spellID = 2484, name = "Earthbind Totem" }
+	enter("party")
+	assert(P.applied == "global:dungeon", tostring(P.applied))
+	assert(earthSpell() == "Earthbind Totem")
+	assert(btn("Profile").text._text == "ALL\nDGN")
+	assert(lastLine():find("Profile: Global · Dungeon"), lastLine())
+end)
+step("leaving falls back to the Global default", function()
+	enter("none")
+	assert(P.applied == "global" and earthSpell() == "Stoneskin Totem")
+end)
+step("with a saved loadout, its profile wins over Global", function()
+	scenario.loadout = 102 -- "Resto"
+	ns.addon:OnSlashCommand("save loadout:dungeon")
+	assert(G.profiles["L102:dungeon"], "loadout key not created")
+	G.profiles["L102:dungeon"].earth = { spellID = 8143, name = "Tremor Totem" }
+	enter("party")
+	assert(P.applied == "L102:dungeon", tostring(P.applied))
+	assert(earthSpell() == "Tremor Totem")
+	assert(btn("Profile").text._text == "RES\nDGN", btn("Profile").text._text)
+	assert(B.frame.label._text == "Resto · Dungeon", B.frame.label._text)
+end)
+step("switching loadout switches profile (another loadout -> Global)", function()
+	scenario.loadout = 101 -- "Enh", nothing saved for it
+	P:Schedule("SELECTED_LOADOUT_CHANGED")
+	assert(P.applied == "global:dungeon", tostring(P.applied))
+	scenario.loadout = 102
+	P:Schedule("SELECTED_LOADOUT_CHANGED")
+	assert(P.applied == "L102:dungeon")
+end)
+step("resolution order is loadout:sit, loadout:default, global:sit, global, captured", function()
+	local chain = table.concat(P:Chain(), ",")
+	assert(chain == "L102:dungeon,L102:default,global:dungeon,global,captured", chain)
+end)
+step("a manual pin survives zone and loadout changes; dot turns to warning", function()
+	ns.addon:OnSlashCommand("profile global")
+	assert(P.applied == "global" and G.manual == "global")
+	enter("raid")
+	scenario.loadout = 101
+	P:Schedule("SELECTED_LOADOUT_CHANGED")
+	assert(P.applied == "global", "pin was overridden: " .. tostring(P.applied))
+	local warn = { ns.Themes.RGB(ns.Themes:Current().warn) }
+	assert(btn("Profile").dot._color[1] == warn[1], "dot not warning colour")
+end)
+step("/ta auto resumes and the dot goes back to success", function()
+	scenario.loadout = 102
+	enter("party")
+	ns.addon:OnSlashCommand("auto")
+	assert(G.manual == nil and P.applied == "L102:dungeon", tostring(P.applied))
+	local ok = { ns.Themes.RGB(ns.Themes:Current().ok) }
+	assert(btn("Profile").dot._color[1] == ok[1], "dot not success colour")
+end)
+step("in combat a due switch is queued, label shows Old -> New, casting unchanged", function()
+	scenario.inCombat = true
+	enter("none") -- Resto has no world profile -> global
+	assert(P.applied == "L102:dungeon" and P.queued == "global", tostring(P.queued))
+	assert(earthSpell() == "Tremor Totem", "attribute changed in combat")
+	assert(B.frame.label._text == "Resto · Dungeon -> Global default", B.frame.label._text)
+	assert(lastLine():find("when combat ends"), lastLine())
+end)
+step("...and applied when combat ends", function()
+	scenario.inCombat = false
+	P:OnRegenEnabled()
+	B:OnRegenEnabled()
+	assert(P.applied == "global" and not P.queued and earthSpell() == "Stoneskin Totem")
+end)
+step("a queued switch that becomes moot is cancelled", function()
+	scenario.inCombat = true
+	enter("party")
+	assert(P.queued == "L102:dungeon")
+	enter("none")
+	assert(P.queued == nil and P.applied == "global", tostring(P.queued))
+	scenario.inCombat = false
+end)
+step("on-screen message can be turned off; the chat line stays", function()
+	local flashes = 0
+	local realFlash = P.Flash
+	P.Flash = function() flashes = flashes + 1 end
+	enter("party")
+	assert(flashes == 1)
+	ns.addon:OnSlashCommand("message off")
+	enter("none")
+	assert(flashes == 1 and lastLine():find("Profile:"), "flash shown while off")
+	ns.addon:OnSlashCommand("message on")
+	P.Flash = realFlash
+end)
+step("Profile button opens the chooser; picking pins, Auto unpins", function()
+	btn("Profile")._scripts.OnClick(btn("Profile"))
+	local m = scenario.menu
+	assert(m and m[2].kind == "radio" and m[2].text:find("^Auto %(currently: "), m and m[2] and m[2].text)
+	local pick
+	for _, item in ipairs(m) do
+		if item.kind == "radio" and item.data == "global:dungeon" then pick = item end
+	end
+	assert(pick, "global:dungeon not offered")
+	pick.select(pick.data)
+	assert(G.manual == "global:dungeon" and P.applied == "global:dungeon")
+	m[2].select()
+	assert(G.manual == nil)
+end)
+step("deleting the pinned profile unpins and falls back", function()
+	ns.addon:OnSlashCommand("profile global:dungeon")
+	ns.addon:OnSlashCommand("delete global:dungeon")
+	assert(G.manual == nil and not G.profiles["global:dungeon"])
+	enter("party")
+	assert(P.applied == "L102:dungeon", tostring(P.applied))
+end)
+step("logging in is not announced as a switch", function()
+	local before = #output
+	P.applied = nil
+	P:Update("login", true)
+	for i = before + 1, #output do assert(not output[i]:find("Profile:"), "announced at login") end
+	scenario.loadout, scenario.instance = nil, "none"
+	P:Update("reset", true)
+end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
@@ -692,7 +859,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Profiles.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

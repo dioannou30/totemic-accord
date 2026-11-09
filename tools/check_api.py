@@ -132,6 +132,7 @@ RE_LUA_ALIASED_GLOBAL = re.compile(r'=\s*([A-Z][A-Za-z0-9_]*)\s*;')
 RE_CALL_GLOBAL = re.compile(r'(?<![:.\w])([A-Z][A-Za-z0-9_]*)\s*\(')
 RE_CALL_NAMESPACED = re.compile(r'(?<![:.\w])(C_[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*\(')
 RE_REGISTER_EVENT = re.compile(r'RegisterEvent\w*\s*\(\s*"([A-Z0-9_]+)"')
+RE_BLOCK_COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]", re.S)
 # String literals, blanked before looking for calls so a Lua pattern such as
 # "^NUMPAD(%d)$" is not mistaken for a call to NUMPAD().
 RE_STRING = re.compile(r'"(?:\\.|[^"\\])*"' + r"|'(?:\\.|[^'\\])*'")
@@ -242,6 +243,9 @@ def scan_addon(addon: Path, allow: Allowlist) -> list[str]:
                     local_names.add(name)
         local_names.update(RE_OWN_METHOD.findall(text))
 
+        # Blank --[[ ... ]] / --[==[ ... ]==] block comments, keeping their newlines so
+        # reported line numbers stay right. Prose like "LOADOUT (" is not a call.
+        text = RE_BLOCK_COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
         lines = text.splitlines()
         for lineno, line in enumerate(lines, start=1):
             # Events are read from the raw line (they ARE strings); calls from the
