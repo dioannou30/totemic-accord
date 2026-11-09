@@ -533,7 +533,13 @@ function Bar:StyleButton(b, theme)
 		setFont(b.text, kind == "profile" and Themes.FONTS.mono or Themes.FONTS.initials,
 			kind == "profile" and 8 or 13, "OUTLINE")
 		b.text:SetShadowOffset(1, -1)
-		b.text:SetTextColor(empty and 0.4 or 1, empty and 0.42 or 1, empty and 0.45 or 1)
+		-- Nothing-to-cast faces use the theme's muted colour. They were 40% grey, which
+		-- vanished on the dark gradients (Totemic Projection read as blank in game).
+		if empty then
+			b.text:SetTextColor(RGB(theme.muted))
+		else
+			b.text:SetTextColor(1, 1, 1)
+		end
 	end
 	b.text:SetText(faceText(b, mode))
 
