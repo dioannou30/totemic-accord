@@ -3,8 +3,8 @@
 A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
 16001), with profiles that switch **automatically by spec and situation**.
 
-> Status: **M1 (skeleton) built, awaiting in-game verification.** It loads, gates on class,
-> creates saved variables and answers `/ta` and `/ta selftest`. No bar yet.
+> Status: **M2 (totem data) built, awaiting in-game verification.** It loads, gates on class,
+> discovers your totems per element and answers `/ta selftest`. No bar yet.
 > See `docs/CLAUDE_CODE_PROMPT.md` for the full spec and `docs/decisions.md` for the log.
 
 Other Forever totem bars exist; none of them switches totem sets automatically by

@@ -19,4 +19,5 @@ Libs\embeds.xml
 Locales\enUS.lua
 
 Core.lua
+Data.lua
 SelfTest.lua

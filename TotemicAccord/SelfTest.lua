@@ -207,9 +207,56 @@ function SelfTest:Run()
 		fail("Totem slot constants", "one of the *_TOTEM_SLOT globals is missing")
 	end
 
-	-- ---------------------------------------------------------------- pending
-	pending(L.TEST_TOTEM_SPELLS, "M2")
-	pending(L.TEST_ABBREVIATIONS, "M2")
+	-- ---------------------------------------------------------------- M2: totem data
+	local Data = ns.Data
+	Data:Discover()
+
+	-- The native bar's lists only exist after Call of the Elements; before that the
+	-- spellbook is the source and this is expected, not a failure.
+	local multicastSlots = 0
+	for _, e in ipairs(Data.ELEMENTS) do
+		for _, t in ipairs(Data:GetTotems(e.key)) do
+			if t.source == "multicast" then
+				multicastSlots = multicastSlots + 1
+				break
+			end
+		end
+	end
+	if multicastSlots == #Data.ELEMENTS then
+		pass(L.TEST_TOTEM_SPELLS, "GetMultiCastTotemSpells lists all 4 elements")
+	else
+		info(L.TEST_TOTEM_SPELLS, ("native bar lists %d/4 elements -- using the spellbook"):format(multicastSlots))
+	end
+	for _, e in ipairs(Data.ELEMENTS) do
+		local parts = {}
+		for _, t in ipairs(Data:GetTotems(e.key)) do
+			parts[#parts + 1] = ("%s %s%s"):format(t.code, Data.BaseName(t.name),
+				t.source == "multicast" and "" or ("[" .. t.source:sub(1, 1) .. "]"))
+		end
+		info("  " .. e.key, #parts > 0 and table.concat(parts, ", ") or "none known")
+	end
+	if #Data.unplaced > 0 then
+		fail("Totems with unknown element",
+			table.concat(Data.unplaced, ", ") .. " -- drop each once out of combat to teach it")
+	end
+
+	if #Data.clashes == 0 then
+		pass(L.TEST_ABBREVIATIONS)
+	else
+		fail(L.TEST_ABBREVIATIONS, table.concat(Data.clashes, "; "))
+	end
+
+	-- Not-yet-learned spells the spellbook already shows, with their levels. This is how
+	-- Call of the Elements and Totemic Projection get identified before they are learned.
+	local upcoming = {}
+	for name, f in pairs(Data.future or {}) do
+		if name:find("Totem") or name:find("Call of the") then
+			upcoming[#upcoming + 1] = ("%s (%s) L%s"):format(name, tostring(f.spellID), tostring(f.level))
+		end
+	end
+	table.sort(upcoming)
+	info("Upcoming totem spells", #upcoming > 0 and table.concat(upcoming, ", ") or "none listed")
+
 	pending(L.TEST_PROFILE_SPELLS, "M5")
 	pending(L.TEST_SECURE_BUTTONS, "M4/M8")
 	pending(L.TEST_MACRO_LENGTH, "M7")

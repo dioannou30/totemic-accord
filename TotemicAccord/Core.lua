@@ -50,6 +50,7 @@ local CHAR_DEFAULTS = {
 		sequences = {},  -- ["<profile key>"]      = { order=, include=, reset... }
 		captured = {},   -- snapshot of the native Call of the Elements page
 		manual = nil,    -- a profile key while manually pinned, else nil
+		learnedElements = {}, -- ["<totem spell name>"] = "earth" etc., seen via GetTotemInfo
 		settings = {
 			theme = "emerald",
 			buttonStyle = "initials",
@@ -118,6 +119,7 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
+	ns.Data:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
 	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
