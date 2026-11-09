@@ -157,6 +157,9 @@ local function newWidget(name)
 	end
 	function methods:GetAttribute(k) return self._attrs and self._attrs[k] end
 	function methods:RegisterForClicks(...) self._clicks = { ... } end
+	function methods:RegisterUnitEvent(ev)
+		if ev == "UNIT_SPELLCAST_SUCCEEDED" then FRAMES.__castProbe = self end
+	end
 	function methods:CreateTexture() return newWidget() end
 	function methods:CreateFontString() return newWidget() end
 	function methods:CreateAnimationGroup() return newWidget() end
@@ -324,7 +327,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Profiles.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Profiles.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -841,6 +844,109 @@ step("logging in is not announced as a switch", function()
 	P:Update("reset", true)
 end)
 
+realPrint("\nCast probe (M7 prep):")
+step("records readable vs secret spell IDs, in and out of combat", function()
+	local probe = FRAMES.__castProbe
+	assert(probe, "probe frame not created")
+	local onEvent = probe._scripts.OnEvent
+	onEvent(probe, "UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 8071)
+	scenario.inCombat = true
+	issecretvalue = function() return true end
+	onEvent(probe, "UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 8071)
+	issecretvalue = function() return false end
+	scenario.inCombat = false
+	assert(ns.SelfTest.castSeen.idle == "readable (8071)", tostring(ns.SelfTest.castSeen.idle))
+	assert(ns.SelfTest.castSeen.combat == "secret", tostring(ns.SelfTest.castSeen.combat))
+end)
+
+realPrint("\nFlyouts (M6):")
+local F = ns.Flyout
+local function arrow(n) return btn(n).arrow end
+step("every element has an arrow tab above it (horizontal)", function()
+	B:Set("layout", "horizontal")
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air" }) do
+		local p = arrow(n)._points[1]
+		assert(p and p[1] == "BOTTOM" and p[2] == btn(n) and p[3] == "TOP", n)
+	end
+	assert(not btn("Action").arrow, "only elements get arrows")
+end)
+step("vertical layout puts the tab on the left", function()
+	B:Set("layout", "vertical")
+	local p = arrow("Earth")._points[1]
+	assert(p[1] == "RIGHT" and p[3] == "LEFT", p[1])
+	B:Set("layout", "horizontal")
+end)
+step("a hidden empty element hides its arrow too", function()
+	-- Since M5 the bar shows the profile's totems, so empty the element in the profile.
+	local before = btn("Water").totem and btn("Water").totem.code
+	ns.addon:OnSlashCommand("set water none")
+	B:Set("emptySlot", "hide")
+	assert(not btn("Water")._shown and not arrow("Water")._shown, "arrow still shown")
+	B:Set("emptySlot", "grey")
+	if before then ns.addon:OnSlashCommand("set water " .. before) end
+end)
+step("opening shows none + every known totem, current one ringed", function()
+	ns.addon:OnSlashCommand("set earth SS")
+	arrow("Earth")._scripts.OnClick()
+	assert(F.frame._shown and F.owner == btn("Earth"))
+	local shown, ringed = {}, nil
+	for _, it in ipairs(F.frame.items) do
+		if it._shown then
+			shown[#shown + 1] = it.text._text
+			if it.ring._shown then ringed = it.text._text end
+		end
+	end
+	assert(table.concat(shown, ",") == "-,EB,SS,SE", table.concat(shown, ","))
+	assert(ringed == "SS", "ringed: " .. tostring(ringed))
+end)
+step("picking changes the applied profile and what the button casts", function()
+	for _, it in ipairs(F.frame.items) do
+		if it._shown and it.text._text == "EB" then it._scripts.OnClick(it) end
+	end
+	assert(not F.frame._shown, "flyout stayed open")
+	assert(ns.addon.db.global.profiles[P.applied].earth.name == "Earthbind Totem")
+	assert(earthSpell() == "Earthbind Totem")
+end)
+step("picking 'none' empties the element", function()
+	arrow("Earth")._scripts.OnClick()
+	F.frame.items[1]._scripts.OnClick(F.frame.items[1])
+	assert(ns.addon.db.global.profiles[P.applied].earth == nil)
+	assert(btn("Earth"):GetAttribute("type") == nil and btn("Earth").text._text == "-")
+	ns.addon:OnSlashCommand("set earth SS")
+end)
+step("clicking the same arrow again closes it", function()
+	arrow("Fire")._scripts.OnClick()
+	assert(F.frame._shown)
+	arrow("Fire")._scripts.OnClick()
+	assert(not F.frame._shown)
+end)
+step("direction setting places the strip; bad values are rejected", function()
+	for dir, anchor in pairs({ up = "BOTTOM", down = "TOP", left = "RIGHT", right = "LEFT" }) do
+		ns.addon:OnSlashCommand("flyout " .. dir)
+		arrow("Earth")._scripts.OnClick()
+		assert(F.frame._points[1][1] == anchor, dir .. " -> " .. tostring(F.frame._points[1][1]))
+		F:Close()
+	end
+	assert(not B:Set("flyoutDir", "diagonal"))
+	ns.addon:OnSlashCommand("flyout up")
+end)
+step("refuses to open in combat, with a chat message", function()
+	scenario.inCombat = true
+	arrow("Earth")._scripts.OnClick()
+	assert(not F.frame._shown and lastLine():find("combat"), lastLine())
+	scenario.inCombat = false
+end)
+step("entering combat closes an open flyout; a racing pick is refused", function()
+	arrow("Earth")._scripts.OnClick()
+	assert(F.events.PLAYER_REGEN_DISABLED == "Close")
+	local item = F.frame.items[2]
+	scenario.inCombat = true
+	item._scripts.OnClick(item)
+	assert(not F.frame._shown, "not closed")
+	assert(ns.addon.db.global.profiles[P.applied].earth.name == "Stoneskin Totem", "changed in combat")
+	scenario.inCombat = false
+end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
@@ -859,7 +965,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Profiles.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Profiles.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

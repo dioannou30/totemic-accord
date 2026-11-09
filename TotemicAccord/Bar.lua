@@ -379,6 +379,8 @@ function Bar:Layout()
 		f.label:SetPoint("TOP", f, "BOTTOM", 0, -4)
 	end
 
+	ns.Flyout:LayoutArrows()
+	ns.Flyout:Close()
 	self:ApplyLock()
 end
 
@@ -647,6 +649,7 @@ local VALID = {
 	layout = { horizontal = true, vertical = true, grid = true },
 	buttonStyle = { initials = true, icons = true },
 	emptySlot = { grey = true, hide = true },
+	flyoutDir = { up = true, down = true, left = true, right = true },
 }
 
 --- Change a bar setting by name. Returns false for an invalid value.

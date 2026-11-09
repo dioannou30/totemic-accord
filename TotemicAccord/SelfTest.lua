@@ -73,6 +73,25 @@ local function spellKnown(id)
 	return ok2 and known2 or false
 end
 
+-- ------------------------------------------------------------------ cast probe
+-- VERIFY item 7 for M7: is UNIT_SPELLCAST_SUCCEEDED's spellID readable in combat? The
+-- event is documented SecretWhenUnitSpellCastRestricted. Record what we actually see,
+-- in and out of combat, without ever comparing or storing a secret value.
+local castSeen = {}
+do
+	local probe = CreateFrame("Frame")
+	probe:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+	probe:SetScript("OnEvent", function(_, _, _, _, spellID)
+		local when = InCombatLockdown() and "combat" or "idle"
+		if issecretvalue(spellID) then
+			castSeen[when] = "secret"
+		else
+			castSeen[when] = "readable (" .. tostring(spellID) .. ")"
+		end
+	end)
+end
+SelfTest.castSeen = castSeen
+
 function SelfTest:Run()
 	local addon = ns.addon
 	results = { passed = 0, failed = 0 }
@@ -343,6 +362,9 @@ function SelfTest:Run()
 		end
 		info("Keybinds", #keys > 0 and table.concat(keys, ", ") or "none -- /ta keys or the Key Bindings menu")
 	end
+
+	info("Spell ID after a cast", ("out of combat: %s; in combat: %s"):format(
+		castSeen.idle or "no cast seen yet", castSeen.combat or "no cast seen yet"))
 
 	-- ---------------------------------------------------------------- M5: profiles
 	local P = ns.Profiles
