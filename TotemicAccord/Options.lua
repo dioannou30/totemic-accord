@@ -339,6 +339,12 @@ local function appearanceTab()
 			get = function() return settings().scale end,
 			set = function(_, v) ns.Bar:Set("scale", v) end,
 		},
+		buttonSpacing = {
+			type = "range", order = 10.5, name = L.OPT_SPACING, desc = L.OPT_SPACING_DESC,
+			min = 0, max = 8, step = 1,
+			get = function() return settings().buttonSpacing or 6 end,
+			set = function(_, v) ns.Bar:Set("buttonSpacing", v) end,
+		},
 		barOpacity = {
 			type = "range", order = 11, name = L.OPT_OPACITY, desc = L.OPT_OPACITY_DESC,
 			min = 0, max = 1, step = 0.05, isPercent = true,
@@ -382,7 +388,11 @@ local function appearanceTab()
 			type = "execute", order = 32, name = L.OPT_KEYS_APPLY, width = 1.3,
 			func = function() ns.Keybinds:ApplySuggested() end,
 		},
-		-- Own row for the button above, so the seven key buttons below form a grid.
+		clearKeys = {
+			type = "execute", order = 32.5, name = L.OPT_KEYS_CLEAR, width = 1.3,
+			func = function() ns.Keybinds:ClearAllConfirm() end,
+		},
+		-- Own row for the buttons above, so the seven key buttons below form a grid.
 		keysBreak = { type = "description", order = 33, name = "", width = "full" },
 		bind_earth = keybind(41, "TotemicAccordEarth", L.BIND_EARTH),
 		bind_fire = keybind(42, "TotemicAccordFire", L.BIND_FIRE),

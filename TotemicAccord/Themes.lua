@@ -26,7 +26,7 @@ Themes.FONTS = {
 	mono = FONT_DIR .. "JetBrainsMono-Bold.ttf",
 }
 
-Themes.ORDER = { "emerald", "tokyo", "mocha", "latte", "classic" }
+Themes.ORDER = { "emerald", "tokyo", "mocha", "classic" }
 
 Themes.LIST = {
 	emerald = {
@@ -49,13 +49,6 @@ Themes.LIST = {
 		text = "#cdd6f4", muted = "#a6adc8", accent = "#cba6f7",
 		earth = "#f9e2af", fire = "#f38ba8", water = "#89b4fa", air = "#b4befe",
 		ok = "#a6e3a1", warn = "#f9e2af", radius = 6,
-	},
-	latte = {
-		name = L.THEME_LATTE, flat = true,
-		bg = "#dce0e8", panel = "#eff1f5", button = "#e6e9ef", border = "#bcc0cc",
-		text = "#4c4f69", muted = "#6c6f85", accent = "#8839ef",
-		earth = "#df8e1d", fire = "#d20f39", water = "#1e66f5", air = "#7287fd",
-		ok = "#40a02b", warn = "#df8e1d", radius = 6,
 	},
 	classic = {
 		name = L.THEME_CLASSIC, flat = false,
@@ -86,6 +79,8 @@ function Themes.Mix(a, b, t)
 	return r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t
 end
 
+-- Catppuccin Latte (the only light theme) was removed at Dio's request; a saved "latte"
+-- falls back to Emerald (see Core's settings migration).
 function Themes:Get(key)
 	return self.LIST[key] or self.LIST.emerald
 end

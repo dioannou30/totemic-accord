@@ -24,7 +24,7 @@ local Bar = {}
 ns.Bar = Bar
 LibStub("AceEvent-3.0"):Embed(Bar)
 
-local SIZE, GAP, PAD = 44, 6, 6
+local SIZE, PAD = 44, 6
 -- Blizzard's UI-Quickslot2 frame is drawn at 66px around a 36px button.
 local CLASSIC_FRAME_RATIO = 66 / 36
 
@@ -328,6 +328,8 @@ function Bar:Layout()
 	local s = settings()
 	local f = self.frame
 	f:SetScale(s.scale or 1)
+	-- Space between buttons (Dio: adjustable, 0-8px).
+	local GAP = s.buttonSpacing or 6
 	local px = onePixel(f)
 
 	local layout = s.layout
@@ -532,7 +534,8 @@ end
 function Bar:UpdateKeys()
 	for _, b in ipairs(self.buttons or {}) do
 		b.key:SetText(ns.Keybinds.LabelFor(b.spec.name))
-	end
+	end	-- Also covers binds made in the game's Key Bindings menu while our window is open.
+	ns.Options:Refresh()
 end
 
 --- Face text for a button in Initials style (and whenever there is no icon).
@@ -633,7 +636,8 @@ function Bar:StyleButton(b, theme)
 		b.line:Hide()
 	end
 
-	setFont(b.key, Themes.FONTS.mono, 8, theme.flat and "" or "OUTLINE")
+	-- 10px with an outline: at 8px it was barely readable at 85% scale (Dio).
+	setFont(b.key, Themes.FONTS.mono, 10, "OUTLINE")
 	b.key:SetTextColor(RGB(theme.text))
 	b.key:SetShadowColor(RGB(theme.bg))
 	b.key:SetShadowOffset(1, -1)
@@ -718,21 +722,22 @@ local VALID = {
 	flyoutDir = { up = true, down = true, left = true, right = true },
 	actionMode = { auto = true, cote = true, seq = true },
 }
+local RANGES = { scale = { 0.5, 2 }, buttonSpacing = { 0, 8 } }
 
 --- Change a bar setting by name. Returns false for an invalid value.
 function Bar:Set(name, value)
 	if VALID[name] and not VALID[name][value] then
 		return false
 	end
-	if name == "scale" then
+	if RANGES[name] then
 		value = tonumber(value)
-		if not value or value < 0.5 or value > 2 then
+		if not value or value < RANGES[name][1] or value > RANGES[name][2] then
 			return false
 		end
 	end
 	settings()[name] = value
 	if InCombatLockdown() and (name == "layout" or name == "scale" or name == "emptySlot"
-		or name == "actionMode") then
+		or name == "actionMode" or name == "buttonSpacing") then
 		ns.addon:Log(L.COMBAT_QUEUED)
 	end
 	self:Layout()

@@ -1411,7 +1411,7 @@ step("export -> import round-trips profiles, sequences and settings (real codecs
 	assert(text:sub(1, 4) == "TA1:" and #text > 20, text)
 	local before = { profiles = G.profiles, seconds = ns.Sequence:Get(P.applied).resetSeconds }
 	G.profiles, G.sequences = {}, {}
-	G.settings.theme = "latte"
+	G.settings.theme = "mocha"
 	scenario.popup = nil
 	assert(ns.ImportExport:BeginImport(text), ns.ImportExport.lastError)
 	assert(G.profiles.global == nil, "applied before confirming")
@@ -1537,9 +1537,9 @@ step("widgets created by OUR GUI copy are drawn in the theme", function()
 end)
 step("a theme switch re-skins live widgets", function()
 	local w = PGUI:Create("Button")
-	ns.Themes:Set("latte")
-	local latte = { ns.Themes.RGB(ns.Themes:Current().button) }
-	assert(w.frame.taFace.bg._color[1] == latte[1], "not re-skinned on theme change")
+	ns.Themes:Set("mocha")
+	local mocha = { ns.Themes.RGB(ns.Themes:Current().button) }
+	assert(w.frame.taFace.bg._color[1] == mocha[1], "not re-skinned on theme change")
 	ns.Themes:Set("emerald")
 end)
 step("disabling a widget re-applies the skin (muted text)", function()
@@ -1564,6 +1564,41 @@ step("the SHARED AceGUI used by Questie & co. is never touched", function()
 	assert(rawget(shared, "Create") == nil, "skin wrapped the shared library")
 	assert(LibStub("TotemicAccordConfigDialog-1.0") ~= nil)
 	scenario.makeWidget = function(t) return { type = t } end
+end)
+realPrint("\nRound 3 (spacing, clear keys, Latte):")
+step("button spacing 0-8 moves the buttons; out of range is refused", function()
+	B:Set("layout", "horizontal")
+	B:Set("buttonSpacing", 0)
+	assert((topleft(btn("Fire"))) == 6 + 44, tostring((topleft(btn("Fire")))))
+	B:Set("buttonSpacing", 8)
+	assert((topleft(btn("Fire"))) == 6 + 44 + 8)
+	assert(not B:Set("buttonSpacing", 12) and not B:Set("buttonSpacing", -1))
+	B:Set("buttonSpacing", 6)
+end)
+step("applying suggested keybinds redraws the options window", function()
+	scenario.bindingActions, scenario.bindings = {}, {}
+	local before = scenario.notified
+	ns.addon:OnSlashCommand("keys")
+	scenario.popup.callback()
+	assert(scenario.notified > before, "options not refreshed")
+	assert(opt("appearance", "bind_earth").get({}) == "ALT-SHIFT-Q")
+end)
+step("clear all keybinds asks first, then unbinds all seven", function()
+	scenario.popup = nil
+	ns.addon:OnSlashCommand("keys clear")
+	assert(scenario.popup and next(scenario.bindings) ~= nil, "cleared without asking")
+	scenario.popup.callback()
+	assert(next(scenario.bindings) == nil, "keys left bound")
+	assert(lastLine():find("Cleared 5"), lastLine())
+	scenario.inCombat = true
+	assert(not ns.Keybinds:ClearAll())
+	scenario.inCombat = false
+end)
+step("Latte is gone; a saved 'latte' falls back to Emerald", function()
+	assert(not ns.Themes.LIST.latte and not ns.Themes:Set("latte"))
+	G.settings.theme = "latte"
+	ns.addon:MigrateSettings()
+	assert(G.settings.theme == "emerald")
 end)
 step("selftest: every check implemented, nothing pending", function()
 	local before = #output

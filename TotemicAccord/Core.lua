@@ -66,6 +66,7 @@ local CHAR_DEFAULTS = {
 			showSwitchMessage = true,
 			flyoutArrows = true,
 			barOpacity = 0.86,
+			buttonSpacing = 6, -- px between bar buttons (Dio: adjustable 0-8)
 			showProfileLabel = false, -- profile name under the bar (Dio: off)
 			vividInitials = false,
 			debug = false,
@@ -119,9 +120,18 @@ function addon:OnInitialize()
 	self.accountDB = AceDB:New("TotemicAccordDB", ACCOUNT_DEFAULTS)
 	-- self.db is the per-character data: that is what almost everything wants.
 	self.db = self.charDB
+	self:MigrateSettings()
 
 	self:RegisterChatCommand("ta", "OnSlashCommand")
 	self:RegisterChatCommand("totemicaccord", "OnSlashCommand")
+end
+
+--- Settings that no longer exist fall back to defaults.
+function addon:MigrateSettings()
+	local s = self.db.global.settings
+	if not ns.Themes.LIST[s.theme] then
+		s.theme = "emerald" -- e.g. "latte", removed
+	end
 end
 
 function addon:OnEnable()
@@ -276,7 +286,11 @@ function addon:OnSlashCommand(input)
 		ns.Bar:SetLocked(cmd == "lock")
 		self:Log(cmd == "lock" and L.BAR_LOCKED or L.BAR_UNLOCKED)
 	elseif cmd == "keys" then
-		ns.Keybinds:ApplySuggested()
+		if rest:lower() == "clear" then
+			ns.Keybinds:ClearAllConfirm()
+		else
+			ns.Keybinds:ApplySuggested()
+		end
 	elseif cmd == "reset" then
 		ns.Bar:ResetPosition()
 		self:Log(L.BAR_RESET)

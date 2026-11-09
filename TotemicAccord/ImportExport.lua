@@ -26,7 +26,7 @@ local LibDeflate = LibStub("LibDeflate")
 
 -- Settings that travel. Screen position, minimap position and debug stay local.
 local SETTING_RULES = {
-	theme = { enum = { emerald = true, tokyo = true, mocha = true, latte = true, classic = true } },
+	theme = { enum = { emerald = true, tokyo = true, mocha = true, classic = true } },
 	buttonStyle = { enum = { initials = true, icons = true } },
 	layout = { enum = { horizontal = true, vertical = true, grid = true } },
 	flyoutDir = { enum = { up = true, down = true, left = true, right = true } },
@@ -38,6 +38,7 @@ local SETTING_RULES = {
 	showSwitchMessage = { bool = true },
 	flyoutArrows = { bool = true },
 	vividInitials = { bool = true },
+	buttonSpacing = { min = 0, max = 8 },
 	showProfileLabel = { bool = true },
 }
 

@@ -65,6 +65,10 @@ end
 
 local L = ns.L
 BINDING_HEADER_TOTEMICACCORD = L.BIND_HEADER
+Keybinds.FRAMES = {
+	"TotemicAccordEarth", "TotemicAccordFire", "TotemicAccordWater", "TotemicAccordAir",
+	"TotemicAccordAction", "TotemicAccordProjection", "TotemicAccordProfile",
+}
 for frame, label in pairs({
 	TotemicAccordEarth = L.BIND_EARTH, TotemicAccordFire = L.BIND_FIRE,
 	TotemicAccordWater = L.BIND_WATER, TotemicAccordAir = L.BIND_AIR,
@@ -123,7 +127,40 @@ function Keybinds:Bind(frame, key)
 		SetBinding(key, command)
 	end
 	SaveBindings(GetCurrentBindingSet())
+	ns.Options:Refresh()
 	return true
+end
+
+--- Unbind every key from all seven Totemic Accord buttons. Not in combat.
+function Keybinds:ClearAll()
+	if InCombatLockdown() then
+		ns.addon:Log(L.KEYS_COMBAT)
+		return false
+	end
+	local count = 0
+	for _, frame in ipairs(Keybinds.FRAMES) do
+		for _, key in ipairs({ GetBindingKey(Keybinds.Command(frame)) }) do
+			SetBinding(key)
+			count = count + 1
+		end
+	end
+	SaveBindings(GetCurrentBindingSet())
+	ns.addon:Log(L.KEYS_CLEARED, count)
+	ns.Options:Refresh()
+	return true
+end
+
+function Keybinds:ClearAllConfirm()
+	if InCombatLockdown() then
+		ns.addon:Log(L.KEYS_COMBAT)
+		return
+	end
+	StaticPopup_ShowCustomGenericConfirmation({
+		text = L.KEYS_CLEAR_CONFIRM,
+		acceptText = L.KEYS_CLEAR_ACCEPT,
+		showAlert = true,
+		callback = function() Keybinds:ClearAll() end,
+	})
 end
 
 --- SetBinding is blocked in combat, so this is checked both before asking and again
@@ -141,6 +178,8 @@ function Keybinds:Apply(changes)
 	-- Persist into whichever binding set is active (account or character).
 	SaveBindings(GetCurrentBindingSet())
 	ns.addon:Log(L.KEYS_APPLIED, table.concat(applied, ", "))
+	-- The confirm dialog runs outside the options window: tell it to redraw its key buttons.
+	ns.Options:Refresh()
 	return true
 end
 
