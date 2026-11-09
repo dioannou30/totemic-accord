@@ -60,8 +60,10 @@ mechanical rename: the LibStub names above, and every global frame-name prefix
 two copies never collide. Theming lives in `TotemicAccord/OptionsSkin.lua`. Two layout constants in the fork differ
 from Ace3, each marked `TotemicAccord:` in the source — re-apply them when re-forking:
 - `TotemicAccordGUI.lua`, Flow layout: 10px between widgets and between rows (Ace3: 0 and 3).
-- `widgets/AceGUIWidget-DropDown.lua`, pullout: 4px insets and `items + 12` height (Ace3: 12px
-  and `+ 34`), sized for the flat 1px border.
+- `widgets/AceGUIWidget-DropDown.lua`, pullout: 4px insets and `items + 18` height (Ace3: 12px
+  and `+ 34`), sized for the flat 1px border; less than +18 shows a scrollbar for one item.
+- `widgets/AceGUIWidget-CheckBox.lua`: 8px between box and text in `AlignImage` and the
+  mouse-down handler (Ace3: 0-2px), because Ace re-anchors the text on every click.
 `tools/gui_layout_test.lua` checks the Flow spacing. Licence: Ace3's
 (`Ace3-LICENSE.txt`). The forked dialog still uses the shared `AceConfigRegistry-3.0` (pure
 data), so both dialogs show the same options.

@@ -169,7 +169,8 @@ do
 
 		local h = #self.items * 16
 		self.itemFrame:SetHeight(h)
-		self.frame:SetHeight(min(h + 12, self.maxHeight)) -- TotemicAccord: +12 = 4px insets top/bottom (flat 1px border) + 2px item offset + 2px slack (Ace3: +34)
+		self.frame:SetHeight(min(h + 18, self.maxHeight)) -- TotemicAccord: +18 = 8px insets + 8px item padding (set in Open) + 2px slack; any less and
+		-- the scrollbar shows for a single item (Ace3: +34 with 24px insets)
 
 		item.frame:SetPoint("LEFT", self.itemFrame, "LEFT")
 		item.frame:SetPoint("RIGHT", self.itemFrame, "RIGHT")
@@ -230,8 +231,8 @@ do
 		self.maxHeight = height or defaultMaxHeight
 		if self.frame:GetHeight() > height then
 			self.frame:SetHeight(height)
-		elseif (self.itemFrame:GetHeight() + 12) < height then
-			self.frame:SetHeight(self.itemFrame:GetHeight() + 12) -- see :AddItem
+		elseif (self.itemFrame:GetHeight() + 18) < height then
+			self.frame:SetHeight(self.itemFrame:GetHeight() + 18) -- see :AddItem
 		end
 	end
 

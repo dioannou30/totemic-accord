@@ -127,7 +127,18 @@ local function panelButton(button, disabled)
 	local t = theme()
 	hideTemplateTextures(button)
 	face(button, t.button, t.border)
-	font(button:GetFontString(), "heading", 12, disabled and t.muted or t.text)
+	local fs = button:GetFontString()
+	font(fs, "heading", 12, disabled and t.muted or t.text)
+	if fs then
+		-- Centre the text; Ace sized some buttons (Accept) for Blizzard's narrower font.
+		fs:ClearAllPoints()
+		fs:SetPoint("CENTER", button, "CENTER", 0, 0)
+		fs:SetJustifyH("CENTER")
+		local needed = (fs:GetStringWidth() or 0) + 24
+		if (button:GetWidth() or 0) < needed then
+			button:SetWidth(needed)
+		end
+	end
 	hoverBorder(button, function() return { disabled = disabled } end)
 end
 
@@ -212,6 +223,11 @@ skins.TabGroup = function(w)
 		tab.taLine:SetShown(tab.selected == true)
 		s.edges.BOTTOM:SetShown(not tab.selected)
 		font(tab.Text, "heading", 12, tab.selected and t.accent or (tab.disabled and t.muted or t.text))
+		-- Ace drops tab text 2-3px below centre via these fields (for Blizzard's art);
+		-- set them so every later re-anchor keeps it centred with air below.
+		tab.selectedTextY, tab.deselectedTextY = 2, 2
+		tab.Text:ClearAllPoints()
+		tab.Text:SetPoint("CENTER", tab, "CENTER", 0, 2)
 		hoverBorder(tab, function() return tab end)
 	end
 end
@@ -238,15 +254,10 @@ skins.CheckBox = function(w)
 	local t = theme()
 	w.checkbg:SetColorTexture(RGB(t.button))
 	w.checkbg:SetSize(16, 16)
-	-- Centre the smaller box where Blizzard's 24px art was, and leave a gap before the text
-	-- (Ace anchors the text flush against the box; Blizzard's art had padding built in).
+	-- Centre the smaller box where Blizzard's 24px art was. The gap before the text is set
+	-- in the fork's AlignImage, because Ace re-anchors the text on every click.
 	w.checkbg:ClearAllPoints()
 	w.checkbg:SetPoint("TOPLEFT", w.frame, "TOPLEFT", 4, -4)
-	if not (w.image and w.image:IsShown()) then
-		w.text:ClearAllPoints()
-		w.text:SetPoint("LEFT", w.checkbg, "RIGHT", 8, 0)
-		w.text:SetPoint("RIGHT")
-	end
 	if not w.checkbg.taEdges then
 		local holder = CreateFrame("Frame", nil, w.frame)
 		holder:SetAllPoints(w.checkbg)
@@ -340,6 +351,16 @@ skins.Slider = function(w)
 		thumb:SetColorTexture(RGB(t.accent))
 		thumb:SetSize(8, 14)
 	end
+	-- The thin track puts the 14px handle over the min/max labels (anchored 3px up into the
+	-- original 15px track). Move the labels and the input below it, and make room.
+	w.lowtext:ClearAllPoints()
+	w.lowtext:SetPoint("TOPLEFT", w.slider, "BOTTOMLEFT", 2, -7)
+	w.hightext:ClearAllPoints()
+	w.hightext:SetPoint("TOPRIGHT", w.slider, "BOTTOMRIGHT", -2, -7)
+	w.editbox:ClearAllPoints()
+	w.editbox:SetPoint("TOP", w.slider, "BOTTOM", 0, -8)
+	w.editbox:SetHeight(16)
+	w.frame:SetHeight(56)
 	flatBackdrop(w.editbox, t.bg, 0.6, t.border)
 	font(w.editbox, "heading", 11, t.text)
 	font(w.label, "heading", 12, w.disabled and t.muted or t.text)

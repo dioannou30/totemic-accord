@@ -15,14 +15,17 @@ local CreateFrame, UIParent = CreateFrame, UIParent
 --[[-----------------------------------------------------------------------------
 Support functions
 -------------------------------------------------------------------------------]]
+-- TotemicAccord: 8px between the box and its text (Ace3: 0 / 1px, relying on padding inside
+-- Blizzard's checkbox art, which our flat box doesn't have).
+local TEXT_GAP = 8
 local function AlignImage(self)
 	local img = self.image:GetTexture()
 	self.text:ClearAllPoints()
 	if not img then
-		self.text:SetPoint("LEFT", self.checkbg, "RIGHT")
+		self.text:SetPoint("LEFT", self.checkbg, "RIGHT", TEXT_GAP, 0)
 		self.text:SetPoint("RIGHT")
 	else
-		self.text:SetPoint("LEFT", self.image, "RIGHT", 1, 0)
+		self.text:SetPoint("LEFT", self.image, "RIGHT", TEXT_GAP, 0)
 		self.text:SetPoint("RIGHT")
 	end
 end
@@ -42,9 +45,9 @@ local function CheckBox_OnMouseDown(frame)
 	local self = frame.obj
 	if not self.disabled then
 		if self.image:GetTexture() then
-			self.text:SetPoint("LEFT", self.image,"RIGHT", 2, -1)
+			self.text:SetPoint("LEFT", self.image,"RIGHT", TEXT_GAP + 1, -1)
 		else
-			self.text:SetPoint("LEFT", self.checkbg, "RIGHT", 1, -1)
+			self.text:SetPoint("LEFT", self.checkbg, "RIGHT", TEXT_GAP + 1, -1)
 		end
 	end
 	AceGUI:ClearFocus()
