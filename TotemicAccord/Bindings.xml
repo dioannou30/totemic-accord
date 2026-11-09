@@ -1,0 +1,22 @@
+<Bindings>
+	<!--
+		Loaded automatically by the client (not listed in the TOC). Each entry clicks one
+		of our secure buttons, so a keybind casts exactly what the button would.
+		Display names come from BINDING_HEADER_TOTEMICACCORD and the
+		BINDING_NAME_CLICK ... globals set in Keybinds.lua.
+	-->
+	<Binding name="CLICK TotemicAccordEarth:LeftButton" header="TOTEMICACCORD" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordFire:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordWater:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordAir:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordAction:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordProjection:LeftButton" category="ADDONS">
+	</Binding>
+	<Binding name="CLICK TotemicAccordProfile:LeftButton" category="ADDONS">
+	</Binding>
+</Bindings>

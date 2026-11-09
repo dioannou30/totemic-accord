@@ -193,12 +193,15 @@ function SelfTest:Run()
 	-- up by name and report whatever the client says.
 	-- By name only works once learned. The spellbook does not list unlearned spells on
 	-- Forever, so also probe candidate IDs directly: C_Spell resolves any spell in the
-	-- client's data. 108287 is Totemic Projection's ID in later WoW versions.
-	local projName = spellName("Totemic Projection")
-	if projName then
-		info(L.TEST_PROJECTION, ("known by name: %s"):format(tostring(projName)))
+	-- client's data. 437009 is Wowhead's Forever ID; it may have been renamed
+	-- "Totemic Call", so both names are tried too.
+	for _, name in ipairs({ "Totemic Projection", "Totemic Call" }) do
+		local found = spellName(name)
+		if found then
+			info(L.TEST_PROJECTION, ("known by name: %s"):format(tostring(found)))
+		end
 	end
-	for _, id in ipairs({ 108287 }) do
+	for _, id in ipairs({ ns.Data.PROJECTION_SPELL_ID }) do
 		info(L.TEST_PROJECTION, ("spellID %d resolves to %s, known=%s"):format(
 			id, tostring(spellName(id)), tostring(spellKnown(id))))
 	end
@@ -292,8 +295,36 @@ function SelfTest:Run()
 		fail("Fonts loaded", "cannot load " .. table.concat(bad, ", "))
 	end
 
+	-- ---------------------------------------------------------------- M4: casting
+	if Bar.buttons then
+		local wrong, armed = {}, 0
+		for _, b in ipairs(Bar.buttons) do
+			local wantType, wantSpell = Bar:SecureSpec(b)
+			if b:GetAttribute("type") ~= wantType or b:GetAttribute("spell") ~= wantSpell then
+				wrong[#wrong + 1] = b.spec.key
+			elseif wantType then
+				armed = armed + 1
+			end
+		end
+		if #wrong == 0 then
+			pass(L.TEST_SECURE_BUTTONS, ("%d button(s) cast by spell name%s"):format(armed,
+				Bar.securePending and ", update queued for after combat" or ""))
+		else
+			fail(L.TEST_SECURE_BUTTONS, "out of date: " .. table.concat(wrong, ", ")
+				.. (InCombatLockdown() and " (in combat -- queued)" or ""))
+		end
+		local keys = {}
+		for _, b in ipairs(Bar.buttons) do
+			local label = ns.Keybinds.LabelFor(b.spec.name)
+			if label ~= "" then
+				keys[#keys + 1] = b.spec.key .. "=" .. label
+			end
+		end
+		info("Keybinds", #keys > 0 and table.concat(keys, ", ") or "none -- /ta keys or the Key Bindings menu")
+	end
+
 	pending(L.TEST_PROFILE_SPELLS, "M5")
-	pending(L.TEST_SECURE_BUTTONS, "M4/M8")
+	pending("Native bar sync buttons", "M8")
 	pending(L.TEST_MACRO_LENGTH, "M7")
 	pending(L.TEST_MINIMAP, "M9")
 	pending(L.TEST_COMPARTMENT, "M9")

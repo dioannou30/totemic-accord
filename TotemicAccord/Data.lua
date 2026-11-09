@@ -50,6 +50,24 @@ for _, e in ipairs(Data.ELEMENTS) do
 	Data.ELEMENT_BY_KEY[e.key] = e
 end
 
+-- ------------------------------------------------------------------ special spells
+
+--- Totemic Projection. Not in Forever's UI source; 437009 comes from Wowhead's Forever
+--- spell database (learned at level 22). 108287, its ID in Mists of Pandaria, does not
+--- exist in Forever's client data. Guides disagree on whether it was renamed "Totemic
+--- Call" on 2026-11-02, so the name is always read from the spell ID, never hardcoded.
+--- VERIFY: /ta selftest prints what 437009 resolves to.
+Data.PROJECTION_SPELL_ID = 437009
+Data.PROJECTION_NAME = "Totemic Projection"
+
+--- name, spellID, known
+function Data:Projection()
+	local id = Data.PROJECTION_SPELL_ID
+	local name = C_Spell.GetSpellName(id) or Data.PROJECTION_NAME
+	local known = IsPlayerSpell(id) or (self.spellbook and self.spellbook[name] ~= nil) or false
+	return name, id, known
+end
+
 -- ------------------------------------------------------------------ fallback names
 -- Source 3 only. Keyed by the name with "Totem" removed, as Abbreviate sees it.
 -- A totem here that Forever doesn't have is harmless; one Forever has that is missing

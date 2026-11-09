@@ -183,6 +183,10 @@ function Bar:CreateButton(spec)
 		b.dot:SetPoint("TOPLEFT", 4, -4)
 	end
 
+	-- Receive both halves of a click: the secure template then fires on key-down or
+	-- key-up according to the player's "cast on key down" setting (ActionButtonUseKeyDown).
+	b:RegisterForClicks("AnyUp", "AnyDown")
+
 	-- Hooks, not SetScript: these are secure buttons and we only observe.
 	b:HookScript("OnEnter", function(btn) Bar:OnEnterButton(btn) end)
 	b:HookScript("OnLeave", function(btn) Bar:OnLeaveButton(btn) end)
@@ -408,12 +412,51 @@ function Bar:Refresh()
 		end
 	end
 	self.actionMode = self:ActionMode()
+	self.projection = { ns.Data:Projection() }
 	self.frame.label:SetText(L.BAR_PREVIEW)
+	self:ApplySecure()
 	if visibilityChanged or self.layoutPending then
 		self:Layout()
 	end
 	Themes:Apply()
 	self:UpdateKeys()
+end
+
+--- What each secure button should do: { type, spell } or nil for nothing.
+--- Spells are set by NAME, so the game casts the highest rank you know (Forever has
+--- ranks); a spell ID would pin one rank.
+function Bar:SecureSpec(b)
+	local kind = b.spec.kind
+	if kind == "element" and b.totem then
+		return "spell", b.totem.name
+	elseif kind == "projection" then
+		return "spell", self.projection[1]
+	end
+	-- Action (M7/M8) and Profile (M5) do nothing yet.
+	return nil, nil
+end
+
+--- Write the casting attributes. SetAttribute on a secure button is blocked in
+--- combat, so a change that lands mid-fight is queued for PLAYER_REGEN_ENABLED --
+--- the button keeps casting what it had until then.
+function Bar:ApplySecure()
+	if not self.buttons then
+		return
+	end
+	if InCombatLockdown() then
+		self.securePending = true
+		return
+	end
+	self.securePending = false
+	for _, b in ipairs(self.buttons) do
+		local actionType, spell = self:SecureSpec(b)
+		if b:GetAttribute("type") ~= actionType then
+			b:SetAttribute("type", actionType)
+		end
+		if b:GetAttribute("spell") ~= spell then
+			b:SetAttribute("spell", spell)
+		end
+	end
 end
 
 function Bar:UpdateKeys()
@@ -442,6 +485,8 @@ local function faceIcon(b, mode)
 		return C_Spell.GetSpellTexture(b.totem.spellID)
 	elseif kind == "action" and mode == "cote" then
 		return C_Spell.GetSpellTexture(TOTEM_MULTI_CAST_SUMMON_SPELLS[1])
+	elseif kind == "projection" and Bar.projection and Bar.projection[3] then
+		return C_Spell.GetSpellTexture(Bar.projection[2])
 	end
 	return nil
 end
@@ -449,7 +494,9 @@ end
 function Bar:StyleButton(b, theme)
 	local s = settings()
 	local kind, key = b.spec.kind, b.spec.key
-	local empty = kind == "element" and not b.totem
+	-- "empty" = nothing to cast: an element without a totem, or Projection not learned.
+	local empty = (kind == "element" and not b.totem)
+		or (kind == "projection" and not (self.projection and self.projection[3]))
 	local mode = self.actionMode
 
 	-- Ink: element colour for elements, accent for the action button.
@@ -476,7 +523,7 @@ function Bar:StyleButton(b, theme)
 		b.text:SetShadowOffset(0, 0)
 		b.text:SetTextColor(RGB(ink))
 	else
-		local grad = theme.gradients[empty and "empty" or key]
+		local grad = theme.gradients[(empty and kind == "element") and "empty" or key]
 		b.bg:SetColorTexture(1, 1, 1, 1)
 		b.bg:SetGradient("VERTICAL", CreateColor(RGB(grad[2])), CreateColor(RGB(grad[1])))
 		b.border:SetShown(true)
@@ -551,8 +598,10 @@ function Bar:OnEnterButton(b)
 		GameTooltip:SetText(L["EMPTY_" .. b.spec.key:upper()])
 	elseif kind == "action" then
 		GameTooltip:SetText(self.actionMode == "cote" and L.TIP_ACTION_COTE or L.TIP_ACTION_SEQ)
+	elseif kind == "projection" and self.projection[3] then
+		GameTooltip:SetSpellByID(self.projection[2])
 	elseif kind == "projection" then
-		GameTooltip:SetText(L.TIP_PROJECTION)
+		GameTooltip:SetText(L.TIP_PROJECTION_UNKNOWN)
 	else
 		GameTooltip:SetText(L.TIP_PROFILE)
 	end
@@ -606,6 +655,9 @@ function Bar:OnRegenEnabled()
 	end
 	if self.layoutPending then
 		self:Layout()
+	end
+	if self.securePending then
+		self:ApplySecure()
 	end
 end
 

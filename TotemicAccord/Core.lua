@@ -141,7 +141,7 @@ function addon:PrintHelp()
 	self:Log(L.SLASH_HELP_HEADER)
 	for _, line in ipairs({
 		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
-		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_RESET, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
 		print("  " .. line)
@@ -181,6 +181,8 @@ function addon:OnSlashCommand(input)
 	elseif cmd == "lock" or cmd == "unlock" then
 		ns.Bar:SetLocked(cmd == "lock")
 		self:Log(cmd == "lock" and L.BAR_LOCKED or L.BAR_UNLOCKED)
+	elseif cmd == "keys" then
+		ns.Keybinds:ApplySuggested()
 	elseif cmd == "reset" then
 		ns.Bar:ResetPosition()
 		self:Log(L.BAR_RESET)

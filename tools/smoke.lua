@@ -145,9 +145,18 @@ local function newWidget(name)
 	function methods:GetText() return self._text end
 	function methods:SetTexture(t) self._texture = t end
 	function methods:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
+	function methods:SetTextColor(r, g, b, a) self._textColor = { r, g, b, a } end
 	function methods:SetGradient(...) self._gradient = { ... } end
 	function methods:SetScript(k, fn) self._scripts[k] = fn end
 	function methods:HookScript(k, fn) self._scripts[k] = fn end
+	function methods:SetAttribute(k, v)
+		-- Real secure frames refuse this in combat; so does the fake, loudly.
+		assert(not scenario.inCombat, "SetAttribute called in combat")
+		self._attrs = self._attrs or {}
+		self._attrs[k] = v
+	end
+	function methods:GetAttribute(k) return self._attrs and self._attrs[k] end
+	function methods:RegisterForClicks(...) self._clicks = { ... } end
 	function methods:CreateTexture() return newWidget() end
 	function methods:CreateFontString() return newWidget() end
 	-- Only Capitalized names are faked as no-op methods (all WoW widget methods are);
@@ -175,6 +184,22 @@ end }
 scenario.bindings = {}
 function GetBindingKey(cmd) return scenario.bindings[cmd] end
 C_Spell.GetSpellTexture = function(id) return "icon:" .. tostring(id) end
+
+-- M4: bindings and the confirmation popup
+NAME_BY_ID[437009] = "Totemic Projection"
+scenario.bindingActions = {}  -- key -> command
+scenario.saved = 0
+scenario.popup = nil
+function SetBinding(key, command)
+	assert(not scenario.inCombat, "SetBinding called in combat")
+	scenario.bindingActions[key] = command
+	scenario.bindings[command] = key
+end
+function SaveBindings() scenario.saved = scenario.saved + 1 end
+function GetCurrentBindingSet() return 1 end
+function GetBindingAction(key) return scenario.bindingActions[key] or "" end
+function GetBindingText(action) return "Name of " .. action end
+function StaticPopup_ShowCustomGenericConfirmation(data) scenario.popup = data end
 
 -- ------------------------------------------------------------------ Ace stubs
 local registered = {}
@@ -546,6 +571,100 @@ step("a font that fails at login is retried and then used", function()
 	assert(used and used:find("Manrope%-Bold"), "font not used after retry: " .. tostring(used))
 	earthText.SetFont = nil
 end)
+realPrint("\nCasting + keybinds (M4):")
+step("element buttons cast their totem by NAME (highest rank)", function()
+	B:Refresh()
+	local earth = btn("Earth")
+	assert(earth:GetAttribute("type") == "spell", tostring(earth:GetAttribute("type")))
+	assert(earth:GetAttribute("spell") == earth.totem.name, tostring(earth:GetAttribute("spell")))
+	assert(type(earth:GetAttribute("spell")) == "string", "spell must be a name, not an ID")
+end)
+step("buttons take both click halves so 'cast on key down' is honoured", function()
+	local c = btn("Earth")._clicks
+	assert(c and c[1] == "AnyUp" and c[2] == "AnyDown", "RegisterForClicks")
+end)
+step("projection casts by the name its spell ID resolves to", function()
+	local p = btn("Projection")
+	assert(p:GetAttribute("type") == "spell" and p:GetAttribute("spell") == "Totemic Projection",
+		tostring(p:GetAttribute("spell")))
+end)
+step("projection reads as muted until learned", function()
+	assert(B.projection[3] == false, "should be unknown at level 18")
+	local muted = { ns.Themes.RGB(ns.Themes:Current().muted) }
+	local c = btn("Projection").text._textColor
+	assert(c and c[1] == muted[1] and c[2] == muted[2] and c[3] == muted[3], "projection text not muted")
+	local e = btn("Earth").text._textColor
+	local earthInk = { ns.Themes.RGB(ns.Themes:Current().earth) }
+	assert(e and e[1] == earthInk[1], "earth text not in the element colour")
+end)
+step("action and profile buttons do nothing yet", function()
+	assert(btn("Action"):GetAttribute("type") == nil and btn("Profile"):GetAttribute("type") == nil)
+end)
+step("an element with no totem casts nothing", function()
+	local saved = ns.Data.totems.air
+	ns.Data.totems.air = {}
+	B:Refresh()
+	assert(btn("Air"):GetAttribute("type") == nil and btn("Air"):GetAttribute("spell") == nil)
+	ns.Data.totems.air = saved
+	B:Refresh()
+end)
+step("a totem change in combat is queued, then applied after combat", function()
+	local before = btn("Earth"):GetAttribute("spell")
+	local list = ns.Data.totems.earth
+	table.insert(list, 1, { spellID = 1, name = "Tremor Totem", code = "Tr", source = "fallback" })
+	scenario.inCombat = true
+	B:Refresh()
+	assert(B.securePending and btn("Earth"):GetAttribute("spell") == before, "changed in combat")
+	scenario.inCombat = false
+	B:OnRegenEnabled()
+	assert(not B.securePending and btn("Earth"):GetAttribute("spell") == "Tremor Totem", "not applied")
+	table.remove(list, 1)
+	B:Refresh()
+end)
+step("Key Bindings menu names exist for all seven buttons", function()
+	assert(BINDING_HEADER_TOTEMICACCORD == "Totemic Accord")
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+		assert(_G["BINDING_NAME_CLICK TotemicAccord" .. n .. ":LeftButton"], n)
+	end
+end)
+step("/ta keys asks first and lists what it would replace", function()
+	scenario.bindingActions["ALT-SHIFT-Q"] = "TOGGLEWORLDMAP"
+	scenario.popup = nil
+	ns.addon:OnSlashCommand("keys")
+	assert(scenario.popup, "no confirmation shown")
+	assert(scenario.popup.text:find("ALT%-SHIFT%-Q: Name of TOGGLEWORLDMAP"), scenario.popup.text)
+	assert(scenario.saved == 0 and not scenario.bindings["CLICK TotemicAccordEarth:LeftButton"],
+		"bound before confirming")
+end)
+step("accepting binds all five and saves once", function()
+	scenario.popup.callback()
+	assert(scenario.bindingActions["ALT-SHIFT-Q"] == "CLICK TotemicAccordEarth:LeftButton")
+	assert(scenario.bindingActions["ALT-SHIFT-G"] == "CLICK TotemicAccordAction:LeftButton")
+	assert(scenario.saved == 1, "SaveBindings calls: " .. scenario.saved)
+	B:UpdateKeys()
+	assert(btn("Earth").key._text == "asQ" and btn("Action").key._text == "asG")
+end)
+step("running /ta keys again says they are already set", function()
+	scenario.popup = nil
+	ns.addon:OnSlashCommand("keys")
+	assert(scenario.popup == nil, "asked again for nothing")
+end)
+step("keybinds are never changed in combat", function()
+	scenario.bindingActions, scenario.bindings = {}, {}
+	scenario.inCombat = true
+	scenario.popup = nil
+	ns.addon:OnSlashCommand("keys")
+	assert(scenario.popup == nil, "asked in combat")
+	scenario.inCombat = false
+	ns.addon:OnSlashCommand("keys")
+	scenario.inCombat = true -- entered combat with the dialog open
+	scenario.popup.callback()
+	assert(next(scenario.bindingActions) == nil, "bound in combat")
+	scenario.inCombat = false
+	scenario.bindingActions, scenario.bindings = {}, {}
+	B:UpdateKeys()
+end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
