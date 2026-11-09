@@ -31,10 +31,17 @@ end
 
 -- ------------------------------------------------------------------ arrows
 
---- The direction the arrow tab sits on and points to, from the bar layout: above the
---- button for horizontal and grid, to its left for vertical (as in the mock).
-local function tabSide()
-	return settings().layout == "vertical" and "left" or "up"
+--- Where a button's arrow tab sits (and points): above it in the horizontal layout, to
+--- its left in vertical (as in the mock). In the 2x2 grid the bottom row's tabs go BELOW
+--- the block -- above, they collided with the top row (seen in game).
+local function tabSide(index)
+	local layout = settings().layout
+	if layout == "vertical" then
+		return "left"
+	elseif layout == "grid" and index > 2 then
+		return "down"
+	end
+	return "up"
 end
 
 function Flyout:CreateArrow(button)
@@ -64,20 +71,24 @@ end
 
 --- Place every arrow against its button. Called from Bar:Layout (out of combat).
 function Flyout:LayoutArrows()
-	for _, b in ipairs(ns.Bar.buttons or {}) do
+	for i, b in ipairs(ns.Bar.buttons or {}) do
 		if b.spec.kind == "element" then
 			local a = b.arrow or self:CreateArrow(b)
-			local side = tabSide()
+			local side = tabSide(i)
 			a:ClearAllPoints()
 			if side == "left" then
 				a:SetSize(12, 20)
 				a:SetPoint("RIGHT", b, "LEFT", -1, 0)
+			elseif side == "down" then
+				a:SetSize(20, 12)
+				a:SetPoint("TOP", b, "BOTTOM", 0, -1)
 			else
 				a:SetSize(20, 12)
 				a:SetPoint("BOTTOM", b, "TOP", 0, 1)
 			end
 			a.glyph:SetRotation(ROTATION[side])
-			a:SetShown(b:IsShown())
+			-- Arrows can be turned off (/ta arrows off); right-click still opens the chooser.
+			a:SetShown(b:IsShown() and settings().flyoutArrows ~= false)
 			self:StyleArrow(a)
 		end
 	end

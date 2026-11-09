@@ -62,6 +62,7 @@ local CHAR_DEFAULTS = {
 			locked = false,
 			point = nil,
 			showSwitchMessage = true,
+			flyoutArrows = true,
 			debug = false,
 			minimap = { hide = false },
 		},
@@ -143,7 +144,7 @@ function addon:PrintHelp()
 	self:Log(L.SLASH_HELP_HEADER)
 	for _, line in ipairs({
 		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
-		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_FLYOUT, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_FLYOUT, L.CMD_ARROWS, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_PROFILES, L.CMD_SAVE, L.CMD_DELETE, L.CMD_SET, L.CMD_MESSAGE,
 		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
@@ -263,6 +264,11 @@ function addon:OnSlashCommand(input)
 		self:ListProfiles()
 	elseif cmd == "set" then
 		self:SetCommand(rest)
+	elseif cmd == "arrows" then
+		local on = rest:lower() ~= "off"
+		self.db.global.settings.flyoutArrows = on
+		ns.Flyout:LayoutArrows()
+		self:Log(L.SETTING_SET, cmd, on and "on" or "off")
 	elseif cmd == "message" then
 		local on = rest:lower() ~= "off"
 		self.db.global.settings.showSwitchMessage = on

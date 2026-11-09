@@ -80,11 +80,27 @@ end
 --- bar again shortly -- a few times at most -- which re-attempts every font.
 local FONT_RETRY_DELAYS = { 0.2, 1, 3 }
 
+--- When a font string's font changes but its text does not, the client can keep the
+--- old glyph layout and draw nothing. Seen in game: after a late font load, "EB" and the
+--- "-" of empty slots stayed blank until the text changed. So when the font actually
+--- changes, set the text again from scratch.
+local function refreshGlyphs(fs, path)
+	if fs.taFont ~= path then
+		fs.taFont = path
+		local text = fs:GetText()
+		fs:SetText("")
+		fs:SetText(text or "")
+	end
+end
+
 local function setFont(fs, path, size, flags)
 	if fs:SetFont(path, size, flags or "") then
+		refreshGlyphs(fs, path)
 		return
 	end
-	fs:SetFont((GameFontNormal:GetFont()), size, flags or "")
+	local fallback = (GameFontNormal:GetFont())
+	fs:SetFont(fallback, size, flags or "")
+	refreshGlyphs(fs, fallback)
 	local attempt = (Bar.fontRetries or 0) + 1
 	if not Bar.fontRetryScheduled and FONT_RETRY_DELAYS[attempt] then
 		Bar.fontRetryScheduled = true
@@ -185,6 +201,14 @@ function Bar:CreateButton(spec)
 	-- Hooks, not SetScript: these are secure buttons and we only observe.
 	b:HookScript("OnEnter", function(btn) Bar:OnEnterButton(btn) end)
 	b:HookScript("OnLeave", function(btn) Bar:OnLeaveButton(btn) end)
+	if spec.kind == "element" then
+		-- Right-click opens the totem chooser instead of casting. An action type with no
+		-- SECURE_ACTIONS entry makes the secure template call the button field of that
+		-- name as a plain function -- Blizzard's supported hook for custom actions. The
+		-- attribute is set once here, out of combat; left-click and keybinds still cast.
+		b:SetAttribute("type2", "taflyout")
+		b.taflyout = function(btn) ns.Flyout:Toggle(btn) end
+	end
 	if spec.kind == "profile" then
 		-- Not a casting button: open the chooser once per click (on release), also
 		-- when clicked through its keybind.
@@ -617,8 +641,10 @@ function Bar:OnEnterButton(b)
 	local kind = b.spec.kind
 	if kind == "element" and b.totem then
 		GameTooltip:SetSpellByID(b.totem.spellID)
+		GameTooltip:AddLine(L.TIP_RIGHT_CLICK, 0.6, 0.6, 0.6)
 	elseif kind == "element" then
 		GameTooltip:SetText(L["EMPTY_" .. b.spec.key:upper()])
+		GameTooltip:AddLine(L.TIP_RIGHT_CLICK, 0.6, 0.6, 0.6)
 	elseif kind == "action" then
 		GameTooltip:SetText(self.actionMode == "cote" and L.TIP_ACTION_COTE or L.TIP_ACTION_SEQ)
 	elseif kind == "projection" and self.projection[3] then

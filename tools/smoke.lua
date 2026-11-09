@@ -930,6 +930,41 @@ step("direction setting places the strip; bad values are rejected", function()
 	assert(not B:Set("flyoutDir", "diagonal"))
 	ns.addon:OnSlashCommand("flyout up")
 end)
+step("right-click opens the chooser; left-click and keybinds still cast", function()
+	local earth = btn("Earth")
+	assert(earth:GetAttribute("type2") == "taflyout" and type(earth.taflyout) == "function")
+	assert(earth:GetAttribute("type") == "spell", "left-click no longer casts")
+	F:Close()
+	earth.taflyout(earth) -- what SecureActionButton_OnClick calls for type2
+	assert(F.frame._shown and F.owner == earth)
+	F:Close()
+	assert(btn("Action"):GetAttribute("type2") == nil, "only elements get the right-click chooser")
+end)
+step("grid: bottom-row tabs sit below the block, top-row tabs above", function()
+	B:Set("layout", "grid")
+	local function anchor(n) local p = arrow(n)._points[1]; return p[1] .. ">" .. p[3] end
+	assert(anchor("Earth") == "BOTTOM>TOP" and anchor("Fire") == "BOTTOM>TOP", anchor("Earth"))
+	assert(anchor("Water") == "TOP>BOTTOM" and anchor("Air") == "TOP>BOTTOM", anchor("Water"))
+	B:Set("layout", "horizontal")
+end)
+step("/ta arrows off hides the tabs, on brings them back", function()
+	ns.addon:OnSlashCommand("arrows off")
+	assert(not arrow("Earth")._shown)
+	ns.addon:OnSlashCommand("arrows on")
+	assert(arrow("Earth")._shown)
+end)
+step("a font change re-sets the text so glyphs redraw", function()
+	local fs = btn("Earth").text
+	local calls = {}
+	local realSetText = fs.SetText
+	fs.SetText = function(self, t) calls[#calls + 1] = tostring(t); realSetText(self, t) end
+	fs.taFont = "Fonts\\SOMETHING_ELSE.TTF" -- as if a fallback font had been used
+	ns.Themes:Apply()
+	fs.SetText = nil
+	local seq = table.concat(calls, "|")
+	assert(seq:find("^|SS") or seq:find("|SS"), "no blank-then-text reset: " .. seq)
+	assert(calls[1] == "", "first call should blank the text: " .. seq)
+end)
 step("refuses to open in combat, with a chat message", function()
 	scenario.inCombat = true
 	arrow("Earth")._scripts.OnClick()
