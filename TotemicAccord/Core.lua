@@ -123,6 +123,7 @@ function addon:OnEnable()
 	ns.Data:Init()
 	ns.Bar:Init()
 	ns.Flyout:Init()
+	ns.Sequence:Init()
 	ns.Profiles:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
@@ -146,7 +147,7 @@ function addon:PrintHelp()
 		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
 		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_FLYOUT, L.CMD_ARROWS, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_PROFILES, L.CMD_SAVE, L.CMD_DELETE, L.CMD_SET, L.CMD_MESSAGE,
-		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
+		L.CMD_CAPTURE, L.CMD_SEQ, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
 		print("  " .. line)
 	end
@@ -200,6 +201,36 @@ function addon:SetCommand(rest)
 	end
 	if ns.Profiles:SetElement(element, t.name) then
 		self:Log(L.SET_DONE, element, t.name, ns.Profiles:Label(ns.Profiles.applied))
+	end
+end
+
+--- /ta seq [order e1,e2,e3,e4 | skip <el> | use <el> | combat on|off | seconds <n|off>]
+--- Stand-in for the M9 sequence builder; edits the applied profile's sequence.
+function addon:SequenceCommand(rest)
+	local S = ns.Sequence
+	local sub, arg = (rest or ""):lower():match("^(%S*)%s*(.-)$")
+	local ok = true
+	if sub == "order" then
+		local order = {}
+		for element in arg:gmatch("[^,%s]+") do order[#order + 1] = element end
+		ok = S:SetOrder(order)
+	elseif sub == "skip" or sub == "use" then
+		ok = S:SetIncluded(arg, sub == "use")
+	elseif sub == "combat" then
+		S:SetResetCombat(arg ~= "off")
+	elseif sub == "seconds" then
+		ok = S:SetResetSeconds(arg ~= "off" and tonumber(arg) or nil)
+	elseif sub ~= "" then
+		ok = false
+	end
+	if not ok then
+		self:Log(L.SEQ_USAGE)
+		return
+	end
+	local text = S:MacroText()
+	self:Log(L.SEQ_HEADER, ns.Profiles:Label(ns.Profiles.applied), #text, S.MACRO_LIMIT)
+	for line in (text ~= "" and text or L.SEQ_EMPTY):gmatch("[^\n]+") do
+		print("  " .. line)
 	end
 end
 
@@ -276,7 +307,9 @@ function addon:OnSlashCommand(input)
 	elseif cmd == "capture" then
 		self:NotYet("M8")
 	elseif cmd == "macro" then
-		self:NotYet("M7")
+		ns.Sequence:SyncGameMacro(true)
+	elseif cmd == "seq" then
+		self:SequenceCommand(rest)
 	elseif cmd == "minimap" then
 		self:NotYet("M9")
 	else

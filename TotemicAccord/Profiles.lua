@@ -316,6 +316,9 @@ function Profiles:Apply(key, reason, quiet)
 	self.applied = key
 	self.queued = nil
 	ns.Bar:Refresh()
+	-- New profile, new castsequence: restart the counter and keep "TA Sequence" in step.
+	ns.Sequence:ResetCounter()
+	ns.Sequence:SyncGameMacro(false)
 	ns.addon:Debug("profile %s -> %s (%s)", tostring(previous), tostring(key), tostring(reason))
 	if key and key ~= previous and not quiet and previous ~= nil then
 		self:Announce(key)

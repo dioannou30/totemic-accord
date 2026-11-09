@@ -209,6 +209,10 @@ function Bar:CreateButton(spec)
 		b:SetAttribute("type2", "taflyout")
 		b.taflyout = function(btn) ns.Flyout:Toggle(btn) end
 	end
+	if spec.kind == "action" then
+		-- Observe presses (PostClick runs after the secure click) to drive the counter.
+		b:HookScript("PostClick", function() ns.Sequence:OnActionPressed() end)
+	end
 	if spec.kind == "profile" then
 		-- Not a casting button: open the chooser once per click (on release), also
 		-- when clicked through its keybind.
@@ -465,15 +469,26 @@ end
 --- What each secure button should do: { type, spell } or nil for nothing.
 --- Spells are set by NAME, so the game casts the highest rank you know (Forever has
 --- ranks); a spell ID would pin one rank.
+--- Returns type, spell, macrotext.
 function Bar:SecureSpec(b)
 	local kind = b.spec.kind
 	if kind == "element" and b.totem then
-		return "spell", b.totem.name
+		return "spell", b.totem.name, nil
 	elseif kind == "projection" then
-		return "spell", self.projection[1]
+		return "spell", self.projection[1], nil
+	elseif kind == "action" then
+		if self.actionMode == "seq" then
+			-- A macro, so the game's own /castsequence keeps the step state.
+			local text = ns.Sequence:MacroText()
+			if text ~= "" then
+				return "macro", nil, text
+			end
+		else
+			-- Placeholder until M8 adds the native-bar sync before the cast.
+			return "spell", C_Spell.GetSpellName(TOTEM_MULTI_CAST_SUMMON_SPELLS[1]), nil
+		end
 	end
-	-- Action (M7/M8) and Profile (M5) do nothing yet.
-	return nil, nil
+	return nil, nil, nil
 end
 
 --- Write the casting attributes. SetAttribute on a secure button is blocked in
@@ -489,13 +504,23 @@ function Bar:ApplySecure()
 	end
 	self.securePending = false
 	for _, b in ipairs(self.buttons) do
-		local actionType, spell = self:SecureSpec(b)
+		local actionType, spell, macrotext = self:SecureSpec(b)
 		if b:GetAttribute("type") ~= actionType then
 			b:SetAttribute("type", actionType)
 		end
 		if b:GetAttribute("spell") ~= spell then
 			b:SetAttribute("spell", spell)
 		end
+		if b:GetAttribute("macrotext") ~= macrotext then
+			b:SetAttribute("macrotext", macrotext)
+		end
+	end
+end
+
+function Bar:UpdateCounter()
+	local b = self.byKey and self.byKey.action
+	if b then
+		b.count:SetText(ns.Sequence:CounterText())
 	end
 end
 
@@ -602,7 +627,7 @@ function Bar:StyleButton(b, theme)
 	b.key:SetShadowOffset(1, -1)
 	setFont(b.count, Themes.FONTS.mono, 9, theme.flat and "" or "OUTLINE")
 	b.count:SetTextColor(RGB(theme.accent))
-	b.count:SetText("") -- sequence step counter arrives in M7
+	b.count:SetText(kind == "action" and ns.Sequence:CounterText() or "")
 
 	if b.dot then
 		-- Success colour = automatic profile switching, warning = manually pinned (M5).

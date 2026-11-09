@@ -24,5 +24,6 @@ Themes.lua
 Keybinds.lua
 Bar.lua
 Flyout.lua
+Sequence.lua
 Profiles.lua
 SelfTest.lua

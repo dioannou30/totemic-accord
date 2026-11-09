@@ -213,6 +213,29 @@ MenuUtil = { CreateContextMenu = function(owner, generator)
 	scenario.menu = root.items
 end }
 
+-- M7: a clock, the macro store, and character macro slots
+scenario.now = 1000
+function GetTime() return scenario.now end
+Constants = { MacroConsts = { MAX_ACCOUNT_MACROS = 120, MAX_CHARACTER_MACROS = 18 } }
+scenario.macros = {} -- index -> { name, icon, body }
+function GetMacroInfo(i) local m = scenario.macros[i]; if m then return m.name, m.icon, m.body end end
+function GetNumMacros()
+	local a, c = 0, 0
+	for i in pairs(scenario.macros) do if i <= 120 then a = a + 1 else c = c + 1 end end
+	return a, c
+end
+function CreateMacro(name, icon, body, perCharacter)
+	assert(not scenario.inCombat, "CreateMacro called in combat")
+	assert(perCharacter, "should be a character macro")
+	for i = 121, 138 do
+		if not scenario.macros[i] then scenario.macros[i] = { name = name, icon = icon, body = body }; return i end
+	end
+end
+function EditMacro(i, name, icon, body)
+	assert(not scenario.inCombat, "EditMacro called in combat")
+	scenario.macros[i] = { name = name, icon = icon, body = body }
+end
+
 -- M4: bindings and the confirmation popup
 NAME_BY_ID[437009] = "Totemic Projection"
 scenario.bindingActions = {}  -- key -> command
@@ -327,7 +350,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Profiles.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -356,7 +379,7 @@ step("/ta debug toggles twice", function()
 end)
 step("/ta selftest", function() ns.addon:OnSlashCommand("selftest") end)
 step("every not-yet command answers", function()
-	for _, c in ipairs({ "lock", "unlock", "auto", "profile enh:bg", "capture", "macro", "minimap" }) do
+	for _, c in ipairs({ "lock", "unlock", "auto", "profile enh:bg", "capture", "minimap" }) do
 		ns.addon:OnSlashCommand(c)
 	end
 end)
@@ -625,8 +648,8 @@ step("projection reads as muted until learned", function()
 	local earthInk = { ns.Themes.RGB(ns.Themes:Current().earth) }
 	assert(e and e[1] == earthInk[1], "earth text not in the element colour")
 end)
-step("action and profile buttons do nothing yet", function()
-	assert(btn("Action"):GetAttribute("type") == nil and btn("Profile"):GetAttribute("type") == nil)
+step("profile button never casts (Action is covered by the M7 tests)", function()
+	assert(btn("Profile"):GetAttribute("type") == nil)
 end)
 step("an element with no totem casts nothing", function()
 	local saved = ns.Data.totems.air
@@ -982,6 +1005,160 @@ step("entering combat closes an open flyout; a racing pick is refused", function
 	scenario.inCombat = false
 end)
 
+realPrint("\nSequences (M7):")
+local Q = ns.Sequence
+local function cast(name)
+	local ids = { ["Stoneskin Totem"] = 8071, ["Searing Totem"] = 3599, ["Healing Stream Totem"] = 5394,
+		["Grounding Totem"] = 8177, ["Earthbind Totem"] = 2484 }
+	Q:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", ids[name])
+end
+local function press() btn("Action")._scripts.PostClick(btn("Action")) end
+local function counter() return btn("Action").count._text end
+step("setup: a Global default with all four elements", function()
+	scenario.instance, scenario.loadout = "none", nil
+	G.manual = nil
+	for k in pairs(G.profiles) do G.profiles[k] = nil end
+	for k in pairs(G.sequences) do G.sequences[k] = nil end
+	P.applied = nil
+	for _, c in ipairs({ "set earth SS", "set fire Se", "set water HS", "set air Gr" }) do
+		ns.addon:OnSlashCommand(c)
+	end
+	assert(P.applied == "global" and B.actionMode == "seq")
+end)
+step("default macro: #showtooltip, reset=combat, elements in display order", function()
+	local want = "#showtooltip\n/castsequence reset=combat Stoneskin Totem, Searing Totem, "
+		.. "Healing Stream Totem, Grounding Totem"
+	assert(Q:MacroText() == want, Q:MacroText())
+end)
+step("Action button is a secure macro button running exactly that text", function()
+	local a = btn("Action")
+	assert(a:GetAttribute("type") == "macro" and a:GetAttribute("macrotext") == Q:MacroText())
+	assert(a:GetAttribute("spell") == nil)
+end)
+step("order, skip/use, reset seconds and combat all shape the text", function()
+	ns.addon:OnSlashCommand("seq order fire,earth,air,water")
+	ns.addon:OnSlashCommand("seq skip water")
+	ns.addon:OnSlashCommand("seq seconds 20")
+	assert(Q:MacroText():find("/castsequence reset=combat/20 Searing Totem, Stoneskin Totem, Grounding Totem$"),
+		Q:MacroText())
+	ns.addon:OnSlashCommand("seq combat off")
+	ns.addon:OnSlashCommand("seq seconds off")
+	assert(Q:MacroText():find("/castsequence Searing Totem, Stoneskin Totem, Grounding Totem$"), Q:MacroText())
+	assert(btn("Action"):GetAttribute("macrotext") == Q:MacroText(), "button not rewritten")
+	ns.addon:OnSlashCommand("seq use water")
+	ns.addon:OnSlashCommand("seq combat on")
+	ns.addon:OnSlashCommand("seq order earth,fire,water,air")
+end)
+step("bad sequence input is refused", function()
+	ns.addon:OnSlashCommand("seq order earth,fire")
+	assert(lastLine():find("Usage"), lastLine())
+	ns.addon:OnSlashCommand("seq seconds 9999")
+	assert(lastLine():find("Usage"), lastLine())
+	assert(Q:Get("global").resetSeconds == nil)
+end)
+step("the sequence belongs to the profile: another profile has its own", function()
+	ns.addon:OnSlashCommand("save global:dungeon")
+	enter("party")
+	ns.addon:OnSlashCommand("seq skip fire")
+	assert(not Q:MacroText():find("Searing"), "dungeon still has fire")
+	enter("none")
+	assert(Q:MacroText():find("Searing"), "global lost fire")
+	ns.addon:OnSlashCommand("delete global:dungeon")
+end)
+step("counter starts at 1/4 and follows casts after an Action press", function()
+	Q:ResetCounter()
+	assert(counter() == "1/4", tostring(counter()))
+	press(); cast("Stoneskin Totem")
+	assert(counter() == "2/4", tostring(counter()))
+	press(); cast("Searing Totem")
+	assert(counter() == "3/4", tostring(counter()))
+end)
+step("a totem dropped from its own button does not move the counter", function()
+	scenario.now = scenario.now + 5 -- well outside the press window
+	cast("Healing Stream Totem")
+	assert(counter() == "3/4", tostring(counter()))
+end)
+step("a failed press (no cast) does not move it; wraps after the last step", function()
+	press() -- e.g. on cooldown: no UNIT_SPELLCAST_SUCCEEDED
+	scenario.now = scenario.now + 2
+	assert(counter() == "3/4")
+	press(); cast("Healing Stream Totem")
+	press(); cast("Grounding Totem")
+	assert(counter() == "1/4", tostring(counter()))
+end)
+step("the counter re-syncs to whichever step the game actually cast", function()
+	press(); cast("Searing Totem") -- the game was really on step 2
+	assert(counter() == "3/4", tostring(counter()))
+end)
+step("a secret spell ID is ignored rather than guessed", function()
+	issecretvalue = function() return true end
+	press(); cast("Healing Stream Totem")
+	issecretvalue = function() return false end
+	assert(counter() == "3/4", tostring(counter()))
+end)
+step("reset after combat (when enabled) and on profile switch", function()
+	Q:OnRegenEnabled()
+	assert(counter() == "1/4")
+	press(); cast("Stoneskin Totem")
+	ns.addon:OnSlashCommand("save global:raid")
+	enter("raid")
+	assert(P.applied == "global:raid" and counter() == "1/4", tostring(counter()))
+	enter("none")
+	ns.addon:OnSlashCommand("delete global:raid")
+end)
+step("reset after N seconds without a press", function()
+	ns.addon:OnSlashCommand("seq seconds 20")
+	press(); cast("Stoneskin Totem")
+	assert(counter() == "2/4")
+	scenario.now = scenario.now + 25
+	press() -- 25s later: castsequence starts over
+	assert(Q.position == 1, "position " .. Q.position)
+	cast("Stoneskin Totem")
+	assert(counter() == "2/4", tostring(counter()))
+	ns.addon:OnSlashCommand("seq seconds off")
+end)
+step("/ta macro creates the character macro 'TA Sequence' with the text", function()
+	scenario.macros = {}
+	ns.addon:OnSlashCommand("macro")
+	local m = scenario.macros[121]
+	assert(m and m.name == "TA Sequence" and m.body == Q:MacroText(), m and m.body)
+	assert(lastLine():find("Created"), lastLine())
+end)
+step("it follows profile switches and edits; deleted, it stays deleted", function()
+	ns.addon:OnSlashCommand("seq skip air")
+	assert(scenario.macros[121].body == Q:MacroText() and not scenario.macros[121].body:find("Grounding"))
+	ns.addon:OnSlashCommand("seq use air")
+	scenario.macros = {}
+	ns.addon:OnSlashCommand("seq skip air")
+	assert(next(scenario.macros) == nil, "recreated a macro the player deleted")
+	ns.addon:OnSlashCommand("seq use air")
+end)
+step("macro edits wait for combat to end", function()
+	ns.addon:OnSlashCommand("macro")
+	scenario.inCombat = true
+	ns.Sequence:SyncGameMacro(false) -- e.g. a profile switch landed in combat
+	assert(Q.macroPending, "not queued")
+	scenario.inCombat = false
+	Q.events.PLAYER_REGEN_ENABLED()
+	assert(not Q.macroPending)
+end)
+step("no free character macro slot is reported, not ignored", function()
+	scenario.macros = {}
+	for i = 121, 138 do scenario.macros[i] = { name = "x" .. i } end
+	ns.addon:OnSlashCommand("macro")
+	assert(lastLine():find("no free character macro slot"), lastLine())
+	scenario.macros = {}
+end)
+step("over-long macros are refused with the length", function()
+	local saved = Q.MACRO_LIMIT
+	Q.MACRO_LIMIT = 40
+	ns.addon:OnSlashCommand("macro")
+	Q.MACRO_LIMIT = saved
+	assert(lastLine():find("characters; the game allows 40"), lastLine())
+	assert(next(scenario.macros) == nil, "wrote an over-long macro")
+end)
+step("selftest with sequence section", function() ns.SelfTest:Run() end)
+
 step("built only after combat if the UI loads mid-fight", function()
 	local saved = B.frame
 	B.frame = nil
@@ -1000,7 +1177,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Profiles.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

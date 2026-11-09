@@ -153,6 +153,19 @@ L.CMD_DELETE = "/ta delete <key> - remove a profile so it falls back"
 L.CMD_SET = "/ta set <element> <code|none> - change a totem in the current profile"
 L.CMD_MESSAGE = "/ta message <on|off> - on-screen message when the profile switches"
 
+-- Sequences (M7)
+L.CMD_SEQ = "/ta seq [order e,f,w,a | skip <element> | use <element> | combat on|off | seconds <n|off>]"
+L.SEQ_USAGE = "Usage: /ta seq order earth,fire,water,air | skip <element> | use <element> | combat on|off | seconds <1-600|off>"
+L.SEQ_HEADER = "Sequence for %s (%d/%d characters):"
+L.SEQ_EMPTY = "(nothing to cast - no included element has a totem)"
+L.MACRO_TOO_LONG = "Sequence macro is %d characters; the game allows %d. Include fewer totems."
+L.MACRO_EMPTY_BODY = "#showtooltip\n/run print(\"TA Sequence: the current profile has no totems in its sequence.\")"
+L.MACRO_CREATED = "Created the character macro '%s' - drag it from the Macros window to any bar. It follows your profile."
+L.MACRO_UPDATED = "Updated the character macro '%s'."
+L.MACRO_NO_SLOT = "Couldn't create the macro: no free character macro slot."
+L.TEST_SEQUENCE = "Sequence"
+L.TEST_GAME_MACRO = "Game macro 'TA Sequence'"
+
 -- Combat guards
 L.COMBAT_NO_TOTEM_CHANGE = "Can't change totems in combat."
 L.COMBAT_QUEUED = "In combat - queued, will apply when combat ends."

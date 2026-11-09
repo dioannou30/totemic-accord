@@ -392,7 +392,25 @@ function SelfTest:Run()
 		fail(L.TEST_PROFILE_SPELLS, "not known: " .. table.concat(unknown, "; "))
 	end
 	pending("Native bar sync buttons", "M8")
-	pending(L.TEST_MACRO_LENGTH, "M7")
+	-- ---------------------------------------------------------------- M7: sequence
+	local Seq = ns.Sequence
+	local text = Seq:MacroText()
+	info(L.TEST_SEQUENCE, text ~= "" and (text:gsub("\n", " | ")) or "nothing to cast")
+	if #text <= Seq.MACRO_LIMIT then
+		pass(L.TEST_MACRO_LENGTH, ("%d/%d characters, Action button mode %s, counter %s"):format(
+			#text, Seq.MACRO_LIMIT, tostring(Bar.actionMode), Seq:CounterText() ~= "" and Seq:CounterText() or "-"))
+	else
+		fail(L.TEST_MACRO_LENGTH, ("%d/%d characters"):format(#text, Seq.MACRO_LIMIT))
+	end
+	local action = Bar.byKey and Bar.byKey.action
+	if action and Bar.actionMode == "seq" and text ~= "" then
+		if action:GetAttribute("type") == "macro" and action:GetAttribute("macrotext") == text then
+			pass("Action button runs the sequence")
+		else
+			fail("Action button runs the sequence", Bar.securePending and "queued until combat ends"
+				or ("type=%s"):format(tostring(action:GetAttribute("type"))))
+		end
+	end
 	pending(L.TEST_MINIMAP, "M9")
 	pending(L.TEST_COMPARTMENT, "M9")
 
