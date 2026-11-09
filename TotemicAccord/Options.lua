@@ -182,7 +182,9 @@ local function profilesTab()
 		},
 		howTo = { type = "description", order = 12, name = L.OPT_HOWTO },
 		create = {
-			type = "execute", order = 39, name = L.OPT_CREATE, desc = L.OPT_CREATE_DESC,
+			type = "execute", order = 39, desc = L.OPT_CREATE_DESC,
+			-- Disabled when the cell already exists -- and says so, rather than just greying out.
+			name = function() return g().profiles[editKey()] and L.OPT_EXISTS or L.OPT_CREATE end,
 			disabled = function() return g().profiles[editKey()] ~= nil end,
 			func = function() ns.Profiles:SaveAs(editKey()) end,
 		},
@@ -433,6 +435,12 @@ end
 
 --- Open the window, optionally on a tab ("profiles", "sequence", "appearance", "importexport").
 function Options:Open(tab)
+	-- Start the Profiles editor on the situation you are in: usually a cell not set yet,
+	-- so Create is ready to use.
+	if not self.opened then
+		self.editCol = ns.Profiles:CurrentSituation()
+		self.opened = true
+	end
 	AceConfigDialog:Open(ADDON)
 	if tab then
 		AceConfigDialog:SelectGroup(ADDON, tab)
