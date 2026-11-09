@@ -114,6 +114,68 @@ function InCombatLockdown() return scenario.inCombat end
 function issecretvalue() return false end
 C_Timer = { After = function(_, fn) fn() end }
 
+-- ---- M3: a permissive fake widget. Unknown methods are no-ops; geometry and
+-- ---- visibility are recorded so layouts can be asserted.
+local function newWidget(name)
+	local w = { _name = name, _shown = true, _points = {}, _scale = 1, _level = 1, _scripts = {} }
+	local methods = {}
+	function methods:GetName() return self._name end
+	function methods:SetSize(wd, ht) self._w, self._h = wd, ht end
+	function methods:SetWidth(v) self._w = v end
+	function methods:SetHeight(v) self._h = v end
+	function methods:GetWidth() return self._w end
+	function methods:GetHeight() return self._h end
+	function methods:ClearAllPoints() self._points = {} end
+	function methods:SetPoint(p, rel, rp, x, y)
+		if type(rel) == "number" then rel, rp, x, y = nil, p, rel, rp end
+		self._points[#self._points + 1] = { p, rel, rp, x or 0, y or 0 }
+	end
+	function methods:GetPoint(i) local q = self._points[i or 1]; if q then return q[1], q[2], q[3], q[4], q[5] end end
+	function methods:SetAllPoints() self._points = { { "ALL" } } end
+	function methods:Show() self._shown = true end
+	function methods:Hide() self._shown = false end
+	function methods:SetShown(v) self._shown = not not v end
+	function methods:IsShown() return self._shown end
+	function methods:SetScale(v) self._scale = v end
+	function methods:GetEffectiveScale() return 1 end
+	function methods:GetFrameLevel() return self._level end
+	function methods:SetFont() return true end
+	function methods:GetFont() return "Fonts\FRIZQT__.TTF", 12, "" end
+	function methods:SetText(t) self._text = t end
+	function methods:GetText() return self._text end
+	function methods:SetTexture(t) self._texture = t end
+	function methods:SetColorTexture(r, g, b, a) self._color = { r, g, b, a } end
+	function methods:SetGradient(...) self._gradient = { ... } end
+	function methods:SetScript(k, fn) self._scripts[k] = fn end
+	function methods:HookScript(k, fn) self._scripts[k] = fn end
+	function methods:CreateTexture() return newWidget() end
+	function methods:CreateFontString() return newWidget() end
+	-- Only Capitalized names are faked as no-op methods (all WoW widget methods are);
+	-- our own fields are lowercase and must read as nil when unset.
+	return setmetatable(w, { __index = function(_, k)
+		if methods[k] then return methods[k] end
+		if type(k) == "string" and k:match("^%u") then return function() end end
+	end })
+end
+UIParent = newWidget("UIParent")
+FRAMES = {}
+function CreateFrame(_, name, parent)
+	local f = newWidget(name)
+	f._parent = parent
+	if name then FRAMES[name] = f; _G[name] = f end
+	return f
+end
+GameFontNormal, GameFontNormalSmall = newWidget(), newWidget()
+GameTooltip = newWidget("GameTooltip")
+function CreateColor(r, g, b, a) return { r = r, g = g, b = b, a = a } end
+PixelUtil = { GetNearestPixelSize = function(size, _, minPixels)
+	if minPixels and size < minPixels then return minPixels end
+	return size
+end }
+scenario.bindings = {}
+function GetBindingKey(cmd) return scenario.bindings[cmd] end
+C_Spell.GetSpellTexture = function(id) return "icon:" .. tostring(id) end
+
 -- ------------------------------------------------------------------ Ace stubs
 local registered = {}
 local addonObj
@@ -155,9 +217,21 @@ local function deepcopy(t)
 	return r
 end
 registered["AceEvent-3.0"] = {
-	Embed = function(_, target)
+	-- Events are recorded per object (one handler each, like the real AceEvent);
+	-- messages go through a shared bus so SendMessage reaches every listener.
+	bus = {},
+	Embed = function(lib, target)
 		target.events = {}
 		function target:RegisterEvent(ev, handler) self.events[ev] = handler end
+		function target:RegisterMessage(msg, handler)
+			lib.bus[msg] = lib.bus[msg] or {}
+			lib.bus[msg][self] = handler
+		end
+		function target:SendMessage(msg, ...)
+			for obj, handler in pairs(lib.bus[msg] or {}) do
+				if type(handler) == "string" then obj[handler](obj, msg, ...) else handler(msg, ...) end
+			end
+		end
 		return target
 	end,
 }
@@ -200,6 +274,9 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua" }) do
+	step("load " .. f, function() loadFile(f) end)
+end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
 step("global TotemicAccord was exposed", function()
 	assert(_G[ADDON] == ns.addon, "addon not exposed as a global")
@@ -323,13 +400,157 @@ step("a clash within an element is detected", function()
 end)
 step("selftest with M2 section", function() ns.SelfTest:Run() end)
 
+-- M3: keybind labels, bar geometry, combat queue, themes
+realPrint("\nKeybind labels:")
+for _, case in ipairs({
+	{ "ALT-SHIFT-Q", "asQ" }, { "CTRL-1", "c1" }, { "SHIFT-BUTTON4", "sM4" }, { "NUMPAD5", "N5" },
+	{ "ALT-CTRL-SHIFT-F", "acsF" }, { "MOUSEWHEELUP", "WU" }, { "F", "F" }, { nil, "" },
+}) do
+	step(("%-18s -> %q"):format(tostring(case[1]), case[2]), function()
+		local got = ns.Keybinds.Format(case[1])
+		assert(got == case[2], "got " .. tostring(got))
+	end)
+end
+
+realPrint("\nBar (M3):")
+local B = ns.Bar
+local S = ns.addon.db.global.settings
+local function topleft(frame)
+	local p = frame._points[1]
+	assert(p and p[1] == "TOPLEFT", "not anchored TOPLEFT")
+	return p[4], -p[5]
+end
+local function btn(name) return FRAMES["TotemicAccord" .. name] end
+step("seven named secure buttons exist", function()
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+		assert(btn(n), "missing TotemicAccord" .. n)
+	end
+	assert(#B.buttons == 7)
+end)
+step("horizontal: 44px buttons, 6px gaps, separator before Action", function()
+	B:Set("layout", "horizontal")
+	local xs = {}
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+		xs[#xs + 1] = (topleft(btn(n)))
+	end
+	-- 6,56,106,156 | sep at 206 (1px) | 213, 263, 313
+	assert(table.concat(xs, ",") == "6,56,106,156,213,263,313", table.concat(xs, ","))
+	assert(B.frame._w == 363 and B.frame._h == 56, ("bar %sx%s"):format(B.frame._w, B.frame._h))
+	assert(B.frame.sep._shown and B.frame.sep._w == 1, "separator")
+end)
+step("vertical: same spacing down the y axis", function()
+	B:Set("layout", "vertical")
+	local _, y = topleft(btn("Profile"))
+	assert(y == 313, "profile y " .. y)
+	assert(B.frame._w == 56 and B.frame._h == 363, ("bar %sx%s"):format(B.frame._w, B.frame._h))
+end)
+step("grid: 2x2 elements, Action over Projection, Profile centred", function()
+	B:Set("layout", "grid")
+	local function at(n) local x, y = topleft(btn(n)); return x .. ":" .. y end
+	assert(at("Earth") == "6:6" and at("Fire") == "56:6" and at("Water") == "6:56" and at("Air") == "56:56", "elements")
+	assert(at("Action") == "106:6" and at("Projection") == "106:56", "action/projection")
+	assert(at("Profile") == "156:31", "profile " .. at("Profile"))
+	assert(not B.frame.sep._shown, "separator should be hidden in grid")
+	assert(B.frame._w == 206 and B.frame._h == 106, ("bar %sx%s"):format(B.frame._w, B.frame._h))
+end)
+step("empty element: grey keeps it, hide removes it and closes the gap", function()
+	B:Set("layout", "horizontal")
+	local saved = ns.Data.totems.water
+	ns.Data.totems.water = {}
+	B:Refresh()
+	assert(btn("Water")._shown and btn("Water").text._text == "-", "grey slot should show '-'")
+	B:Set("emptySlot", "hide")
+	assert(not btn("Water")._shown, "water should be hidden")
+	assert((topleft(btn("Air"))) == 106, "air should move into water's place")
+	B:Set("emptySlot", "grey")
+	ns.Data.totems.water = saved
+	B:Refresh()
+end)
+step("in combat, layout is queued and applied when combat ends", function()
+	scenario.inCombat = true
+	B:Set("layout", "vertical")
+	assert(B.layoutPending, "not queued")
+	assert(B.frame._w == 363, "geometry changed in combat")
+	scenario.inCombat = false
+	B:OnRegenEnabled()
+	assert(not B.layoutPending and B.frame._w == 56, "not applied after combat")
+	B:Set("layout", "horizontal")
+end)
+step("scale accepts 0.5-2 only", function()
+	assert(B:Set("scale", "1.25") and B.frame._scale == 1.25)
+	assert(not B:Set("scale", "5") and not B:Set("scale", "abc"))
+	B:Set("scale", "1")
+end)
+step("all five themes apply; classic uses gradients, flat themes don't", function()
+	for _, key in ipairs(ns.Themes.ORDER) do
+		assert(ns.Themes:Set(key), key)
+		local g = btn("Earth").bg._gradient
+		if key == "classic" then assert(g, "classic should set a gradient") end
+	end
+	assert(not ns.Themes:Set("neon"), "unknown theme accepted")
+	ns.Themes:Set("emerald")
+	local r, g, b = unpack(btn("Earth").text._color or { ns.Themes.RGB("#d9a35b") })
+	assert(r and g and b)
+end)
+step("icons style shows the spell icon, initials shows the code", function()
+	B:Set("buttonStyle", "icons")
+	local earth = btn("Earth")
+	assert(earth.icon._shown and earth.icon._texture == "icon:" .. earth.totem.spellID, "icon")
+	assert(not earth.text._shown, "text should hide behind an icon")
+	assert(btn("Profile").text._shown, "profile keeps its text code")
+	B:Set("buttonStyle", "initials")
+	assert(earth.text._shown and earth.text._text == earth.totem.code, "initials")
+end)
+step("keybind label follows UPDATE_BINDINGS", function()
+	scenario.bindings["CLICK TotemicAccordEarth:LeftButton"] = "ALT-SHIFT-Q"
+	B:UpdateKeys()
+	assert(btn("Earth").key._text == "asQ", tostring(btn("Earth").key._text))
+	scenario.bindings = {}
+	B:UpdateKeys()
+end)
+step("lock hides the drag handle, unlock shows it", function()
+	ns.addon:OnSlashCommand("lock")
+	assert(not B.mover._shown and S.locked)
+	ns.addon:OnSlashCommand("unlock")
+	assert(B.mover._shown and not S.locked)
+end)
+step("dragging is refused in combat", function()
+	local started = false
+	B.frame.StartMoving = function() started = true end
+	scenario.inCombat = true
+	B.mover._scripts.OnDragStart()
+	assert(not started, "moved in combat")
+	scenario.inCombat = false
+	B.mover._scripts.OnDragStart()
+	assert(started, "did not move out of combat")
+end)
+step("slash commands: theme, layout, style, scale, empty, reset, bad values", function()
+	for _, c in ipairs({ "theme tokyo", "layout grid", "style icons", "scale 1.1", "empty hide",
+		"reset", "theme nope", "layout diagonal", "theme emerald", "layout horizontal",
+		"style initials", "scale 1", "empty grey" }) do
+		ns.addon:OnSlashCommand(c)
+	end
+	assert(S.theme == "emerald" and S.layout == "horizontal" and S.point == nil)
+end)
+step("built only after combat if the UI loads mid-fight", function()
+	local saved = B.frame
+	B.frame = nil
+	scenario.inCombat = true
+	B:Init()
+	assert(B.frame == nil, "built in combat")
+	scenario.inCombat = false
+	B:OnRegenEnabled()
+	assert(B.frame ~= nil, "not built after combat")
+	B.frame = saved
+end)
+
 -- non-Shaman path, with a completely fresh namespace
 realPrint("\nNon-Shaman character:")
 scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

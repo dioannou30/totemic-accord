@@ -120,6 +120,7 @@ end
 
 function addon:OnEnable()
 	ns.Data:Init()
+	ns.Bar:Init()
 	self:Debug("OnEnable: %s %s, interface %s", self.DISPLAY_NAME, self.VERSION,
 		tostring(select(4, GetBuildInfo())))
 	self:Log("%s %s " .. L.LOADED, self.DISPLAY_NAME, self.VERSION)
@@ -139,7 +140,8 @@ end
 function addon:PrintHelp()
 	self:Log(L.SLASH_HELP_HEADER)
 	for _, line in ipairs({
-		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_OPTIONS, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
+		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_RESET, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_CAPTURE, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
 		print("  " .. line)
@@ -151,6 +153,14 @@ end
 function addon:OnSlashCommandDisabled()
 	self:Log(L.NOT_SHAMAN)
 end
+
+-- Temporary bar commands until the options window (M9) covers them.
+local SETTING_COMMANDS = {
+	layout = { setting = "layout", choices = "horizontal, vertical, grid" },
+	style = { setting = "buttonStyle", choices = "initials, icons" },
+	empty = { setting = "emptySlot", choices = "grey, hide" },
+	scale = { setting = "scale", choices = "0.5 - 2" },
+}
 
 function addon:OnSlashCommand(input)
 	input = trim(input or "")
@@ -169,7 +179,24 @@ function addon:OnSlashCommand(input)
 	elseif cmd == "help" then
 		self:PrintHelp()
 	elseif cmd == "lock" or cmd == "unlock" then
-		self:NotYet("M3")
+		ns.Bar:SetLocked(cmd == "lock")
+		self:Log(cmd == "lock" and L.BAR_LOCKED or L.BAR_UNLOCKED)
+	elseif cmd == "reset" then
+		ns.Bar:ResetPosition()
+		self:Log(L.BAR_RESET)
+	elseif cmd == "theme" then
+		if ns.Themes:Set(rest) then
+			self:Log(L.SETTING_SET, cmd, rest)
+		else
+			self:Log(L.SETTING_INVALID, cmd, table.concat(ns.Themes.ORDER, ", "))
+		end
+	elseif SETTING_COMMANDS[cmd] then
+		local c = SETTING_COMMANDS[cmd]
+		if ns.Bar:Set(c.setting, rest:lower()) then
+			self:Log(L.SETTING_SET, cmd, rest)
+		else
+			self:Log(L.SETTING_INVALID, cmd, c.choices)
+		end
 	elseif cmd == "auto" or cmd == "profile" then
 		self:NotYet("M5")
 	elseif cmd == "capture" then
@@ -182,6 +209,5 @@ function addon:OnSlashCommand(input)
 		self:Log(L.CMD_UNKNOWN, cmd)
 		self:PrintHelp()
 	end
-	-- `rest` is unused until the commands that take arguments land in M5.
 	self:Debug("slash: cmd=%q rest=%q", cmd, rest or "")
 end

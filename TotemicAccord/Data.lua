@@ -234,6 +234,7 @@ function Data:Discover()
 	self.spellbook = spellbook
 	self.multicastCount = multicastCount
 	self:CheckAbbreviations()
+	self:SendMessage("TOTEMICACCORD_TOTEMS_CHANGED")
 	return totems
 end
 

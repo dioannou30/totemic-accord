@@ -257,6 +257,27 @@ function SelfTest:Run()
 	table.sort(upcoming)
 	info("Upcoming totem spells", #upcoming > 0 and table.concat(upcoming, ", ") or "none listed")
 
+	-- ---------------------------------------------------------------- M3: bar
+	local Bar = ns.Bar
+	if Bar.frame then
+		pass("Bar built", ("%d buttons, layout %s, theme %s"):format(#Bar.buttons,
+			tostring(addon.db.global.settings.layout), tostring(addon.db.global.settings.theme)))
+	else
+		fail("Bar built", InCombatLockdown() and "waiting for combat to end" or "not created")
+	end
+	-- SetFont reports failure for a bad path; the bar falls back to the game font, so a
+	-- broken font would otherwise only be visible as "looks a bit off".
+	local bad = {}
+	for path in pairs(Bar.fontFailures or {}) do
+		bad[#bad + 1] = path:match("[^\\]+$")
+	end
+	if #bad == 0 then
+		pass("Fonts loaded", "Manrope, JetBrains Mono")
+	else
+		table.sort(bad)
+		fail("Fonts loaded", "fell back to the game font for " .. table.concat(bad, ", "))
+	end
+
 	pending(L.TEST_PROFILE_SPELLS, "M5")
 	pending(L.TEST_SECURE_BUTTONS, "M4/M8")
 	pending(L.TEST_MACRO_LENGTH, "M7")

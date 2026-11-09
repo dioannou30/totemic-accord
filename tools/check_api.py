@@ -132,6 +132,9 @@ RE_LUA_ALIASED_GLOBAL = re.compile(r'=\s*([A-Z][A-Za-z0-9_]*)\s*;')
 RE_CALL_GLOBAL = re.compile(r'(?<![:.\w])([A-Z][A-Za-z0-9_]*)\s*\(')
 RE_CALL_NAMESPACED = re.compile(r'(?<![:.\w])(C_[A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\s*\(')
 RE_REGISTER_EVENT = re.compile(r'RegisterEvent\w*\s*\(\s*"([A-Z0-9_]+)"')
+# String literals, blanked before looking for calls so a Lua pattern such as
+# "^NUMPAD(%d)$" is not mistaken for a call to NUMPAD().
+RE_STRING = re.compile(r'"(?:\\.|[^"\\])*"' + r"|'(?:\\.|[^'\\])*'")
 
 # Local declarations in our code, so we do not flag our own locals.
 RE_LOCAL = re.compile(r'\blocal\s+(?:function\s+)?([A-Za-z_][A-Za-z0-9_,\s]*)')
@@ -241,7 +244,10 @@ def scan_addon(addon: Path, allow: Allowlist) -> list[str]:
 
         lines = text.splitlines()
         for lineno, line in enumerate(lines, start=1):
-            code = line.split("--", 1)[0]
+            # Events are read from the raw line (they ARE strings); calls from the
+            # line with strings blanked, then comments cut.
+            events = RE_REGISTER_EVENT.findall(line)
+            code = RE_STRING.sub('""', line).split("--", 1)[0]
             if not code.strip():
                 continue
 
@@ -261,7 +267,7 @@ def scan_addon(addon: Path, allow: Allowlist) -> list[str]:
                         f"{rel}:{lineno}: '{ns}.{fn}' does not exist on Forever"
                     )
 
-            for event in RE_REGISTER_EVENT.findall(code):
+            for event in events:
                 if allow.events and event not in allow.events:
                     problems.append(
                         f"{rel}:{lineno}: unknown event '{event}' "
