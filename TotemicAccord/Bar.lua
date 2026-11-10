@@ -176,6 +176,13 @@ function Bar:CreateButton(spec)
 	b.classicFrame:SetPoint("CENTER")
 	b.classicFrame:SetSize(SIZE * CLASSIC_FRAME_RATIO, SIZE * CLASSIC_FRAME_RATIO)
 
+	if spec.kind == "element" then
+		-- Accent outline while this button's totem is on the ground (build prompt 6.1).
+		-- Created after the classic frame so it draws above the bevel at the same sublevel.
+		b.activeBorder = makeBorder(b)
+		b.activeBorder:SetShown(false)
+	end
+
 	b.text = b:CreateFontString(nil, "OVERLAY")
 	b.text:SetFontObject(GameFontNormal)
 	b.text:SetPoint("CENTER", 0, 1)
@@ -338,6 +345,9 @@ function Bar:Layout()
 		local hidden = b.spec.kind == "element" and not b.totem and s.emptySlot == "hide"
 		b:SetShown(not hidden)
 		b.border:SetThickness(onePixel(b))
+		if b.activeBorder then
+			b.activeBorder:SetThickness(2 * onePixel(b))
+		end
 		b:ClearAllPoints()
 		if not hidden then
 			if b.spec.kind == "element" then
@@ -454,6 +464,7 @@ function Bar:Refresh()
 	if visibilityChanged or self.layoutPending then
 		self:Layout()
 	end
+	self:UpdateActive()
 	Themes:Apply()
 	self:UpdateKeys()
 end
@@ -645,6 +656,11 @@ function Bar:StyleButton(b, theme)
 	b.count:SetTextColor(RGB(theme.accent))
 	b.count:SetText(kind == "action" and ns.Sequence:CounterText() or "")
 
+	if b.activeBorder then
+		b.activeBorder:SetColor(RGB(theme.accent))
+		b.activeBorder:SetShown(b.totemDown == true)
+	end
+
 	if b.dot then
 		-- Success colour = automatic profile switching, warning = manually pinned (M5).
 		b.dot:SetColorTexture(RGB(ns.addon.db.global.manual and theme.warn or theme.ok))
@@ -762,8 +778,77 @@ function Bar:OnRegenEnabled()
 	if self.layoutPending then
 		self:Layout()
 	end
+	self:UpdateActive()
 	if self.securePending then
 		self:ApplySecure()
+	end
+end
+
+-- ------------------------------------------------------------------ active totems
+
+local function elementSlot(key)
+	for _, e in ipairs(ns.Data.ELEMENTS) do
+		if e.key == key then
+			return e.slot
+		end
+	end
+end
+
+--- Mark which element buttons have their totem on the ground, from GetTotemInfo. In
+--- combat the totem slots are secret on Forever (comparing a secret raises an error),
+--- so a secret slot keeps its last known state; the casts below and the re-check when
+--- combat ends cover the gap. Does not restyle: callers do (or use SetTotemDown).
+function Bar:ReadActive()
+	for _, b in ipairs(self.buttons or {}) do
+		local slot = b.spec.kind == "element" and elementSlot(b.spec.key)
+		if slot then
+			local haveTotem, _, _, _, _, _, spellID = GetTotemInfo(slot)
+			if not (issecretvalue(haveTotem) or issecretvalue(spellID)) then
+				local name = haveTotem and spellID and spellID > 0 and C_Spell.GetSpellName(spellID) or nil
+				-- By name, so any rank of the button's totem counts.
+				b.totemDown = name ~= nil and b.totem ~= nil and name == b.totem.name
+			end
+		end
+	end
+end
+
+function Bar:UpdateActive()
+	if not self.frame then
+		return
+	end
+	self:ReadActive()
+	local theme = Themes:Current()
+	for _, b in ipairs(self.buttons) do
+		if b.activeBorder then
+			b.activeBorder:SetColor(RGB(theme.accent))
+			b.activeBorder:SetShown(b.totemDown == true)
+		end
+	end
+end
+
+--- UNIT_SPELLCAST_SUCCEEDED stays readable in combat (verified in game, M7). A totem
+--- cast replaces that element's totem, so its button lights up if the cast is the
+--- button's totem and goes dark otherwise. Expiry in combat can't be seen; the outline
+--- is corrected when combat ends.
+function Bar:OnSpellcast(_, unit, _, spellID)
+	if unit ~= "player" or not self.frame or issecretvalue(spellID) then
+		return
+	end
+	local name = C_Spell.GetSpellName(spellID)
+	local totem = name and ns.Data:FindTotem(name)
+	if not totem then
+		return
+	end
+	for _, b in ipairs(self.buttons) do
+		if b.activeBorder and ns.Data:FindInElement(b.spec.key, name) then
+			b.totemDown = b.totem ~= nil and b.totem.name == name
+			b.activeBorder:SetShown(b.totemDown)
+		end
+	end
+	-- Out of combat the slot data is readable: prefer it (it also sees a totem that
+	-- failed to land).
+	if not InCombatLockdown() then
+		self:UpdateActive()
 	end
 end
 
@@ -781,6 +866,9 @@ function Bar:Init()
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", "Layout")
 	self:RegisterEvent("SPELLS_CHANGED", "Refresh")
 	self:RegisterMessage("TOTEMICACCORD_TOTEMS_CHANGED", "Refresh")
+	self:RegisterEvent("PLAYER_TOTEM_UPDATE", "UpdateActive")
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateActive")
+	self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "OnSpellcast")
 	-- Secure frames should be created out of combat. A /reload mid-fight lands here
 	-- in combat, so wait for it to end.
 	if InCombatLockdown() then

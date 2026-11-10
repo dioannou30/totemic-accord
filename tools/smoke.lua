@@ -1498,6 +1498,70 @@ step("the profile menu has 'Edit profiles...', opening the options on that tab",
 	last.select()
 	assert(scenario.optionsOpened == "TotemicAccord" and scenario.optionsTab == "profiles")
 end)
+realPrint("\nActive totem outline (M10):")
+local function lit(n) return btn(n).activeBorder.TOP._shown == true end
+step("the outline shows while the button's own totem is down, in the accent colour", function()
+	ns.addon:OnSlashCommand("set earth SS")
+	scenario.activeTotem = {}
+	B:UpdateActive()
+	assert(not lit("Earth"), "lit with nothing down")
+	scenario.activeTotem[EARTH_TOTEM_SLOT] = 8071 -- Stoneskin
+	assert(B.events.PLAYER_TOTEM_UPDATE == "UpdateActive", "not listening for totem updates")
+	B:UpdateActive("PLAYER_TOTEM_UPDATE", EARTH_TOTEM_SLOT)
+	assert(lit("Earth"), "Stoneskin down but Earth not outlined")
+	assert(not lit("Fire") and not btn("Action").activeBorder, "only element buttons, only when down")
+	local accent = { ns.Themes.RGB(ns.Themes:Current().accent) }
+	assert(btn("Earth").activeBorder.LEFT._color[1] == accent[1], "not the accent colour")
+end)
+step("a different totem of that element does not light the button", function()
+	scenario.activeTotem[EARTH_TOTEM_SLOT] = 2484 -- Earthbind, button shows Stoneskin
+	B:UpdateActive()
+	assert(not lit("Earth"))
+end)
+step("a theme switch keeps the outline, recoloured", function()
+	scenario.activeTotem[EARTH_TOTEM_SLOT] = 8071
+	B:UpdateActive()
+	ns.Themes:Set("mocha")
+	local accent = { ns.Themes.RGB(ns.Themes:Current().accent) }
+	assert(lit("Earth") and btn("Earth").activeBorder.TOP._color[1] == accent[1])
+	ns.Themes:Set("emerald")
+end)
+step("switching the profile's totem re-checks the outline", function()
+	ns.addon:OnSlashCommand("set earth EB")
+	assert(not lit("Earth"), "still lit after the button changed to Earthbind")
+	ns.addon:OnSlashCommand("set earth SS")
+	assert(lit("Earth"))
+end)
+step("in combat (secret slots) the last known state is kept", function()
+	scenario.inCombat = true
+	issecretvalue = function() return true end
+	scenario.activeTotem = {}
+	B:UpdateActive()
+	assert(lit("Earth"), "lost the state on a secret read")
+end)
+step("in combat, casts move the outline: other earth totem off, own totem on", function()
+	assert(B.events.UNIT_SPELLCAST_SUCCEEDED == "OnSpellcast")
+	issecretvalue = function() return false end -- the cast's spell ID is readable
+	B:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 2484) -- Earthbind
+	assert(not lit("Earth"), "Earthbind replaced Stoneskin")
+	B:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 3599) -- Searing: fire
+	assert(not lit("Earth"), "a fire cast changed earth")
+	B:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 8071)
+	assert(lit("Earth"), "own totem cast not lit")
+	B:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "party1", "guid", 2484)
+	assert(lit("Earth"), "someone else's cast counted")
+	issecretvalue = function() return true end
+	B:OnSpellcast("UNIT_SPELLCAST_SUCCEEDED", "player", "guid", 2484)
+	assert(lit("Earth"), "a secret spell ID was used")
+	issecretvalue = function() return false end
+end)
+step("when combat ends the real slot data corrects it", function()
+	scenario.inCombat = false
+	scenario.activeTotem = {} -- expired during the fight
+	B:OnRegenEnabled()
+	assert(not lit("Earth"), "stale outline after combat")
+end)
+
 realPrint("\nRound 3 (spacing, clear keys, Latte):")
 step("button spacing 0-8 moves the buttons; out of range is refused", function()
 	B:Set("layout", "horizontal")
