@@ -57,7 +57,6 @@ local CHAR_DEFAULTS = {
 			theme = "emerald",
 			buttonStyle = "initials",
 			layout = "horizontal",
-			flyoutDir = "up",
 			emptySlot = "grey",
 			actionMode = "auto",
 			scale = 1,
@@ -163,7 +162,7 @@ function addon:PrintHelp()
 	self:Log(L.SLASH_HELP_HEADER)
 	for _, line in ipairs({
 		L.CMD_OPTIONS, L.CMD_HELP, L.CMD_LOCK, L.CMD_UNLOCK, L.CMD_THEME, L.CMD_LAYOUT, L.CMD_STYLE,
-		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_FLYOUT, L.CMD_ARROWS, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
+		L.CMD_SCALE, L.CMD_EMPTY, L.CMD_ARROWS, L.CMD_RESET, L.CMD_KEYS, L.CMD_AUTO, L.CMD_PROFILE,
 		L.CMD_PROFILES, L.CMD_SAVE, L.CMD_DELETE, L.CMD_SET, L.CMD_MESSAGE,
 		L.CMD_CAPTURE, L.CMD_SEQ, L.CMD_MACRO, L.CMD_MINIMAP, L.CMD_DEBUG, L.CMD_SELFTEST,
 	}) do
@@ -263,7 +262,6 @@ local SETTING_COMMANDS = {
 	layout = { setting = "layout", choices = "horizontal, vertical, grid" },
 	style = { setting = "buttonStyle", choices = "initials, icons" },
 	empty = { setting = "emptySlot", choices = "grey, hide" },
-	flyout = { setting = "flyoutDir", choices = "up, down, left, right" },
 	scale = { setting = "scale", choices = "0.5 - 2" },
 }
 

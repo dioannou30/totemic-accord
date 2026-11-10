@@ -29,7 +29,6 @@ local SETTING_RULES = {
 	theme = { enum = { emerald = true, tokyo = true, mocha = true, classic = true } },
 	buttonStyle = { enum = { initials = true, icons = true } },
 	layout = { enum = { horizontal = true, vertical = true, grid = true } },
-	flyoutDir = { enum = { up = true, down = true, left = true, right = true } },
 	emptySlot = { enum = { grey = true, hide = true } },
 	actionMode = { enum = { auto = true, cote = true, seq = true } },
 	scale = { min = 0.5, max = 2 },
