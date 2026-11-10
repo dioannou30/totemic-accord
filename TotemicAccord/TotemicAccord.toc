@@ -2,7 +2,7 @@
 ## Title: Totemic Accord
 ## Notes: Themed shaman totem bar with profiles that switch automatically by spec and situation.
 ## Author: Dio
-## Version: 0.1.0
+## Version: 1.0.0
 ## SavedVariables: TotemicAccordDB
 ## SavedVariablesPerCharacter: TotemicAccordCharDB
 ## IconTexture: Interface\Icons\Spell_Nature_StoneSkinTotem

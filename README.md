@@ -3,7 +3,7 @@
 A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
 16001), with totem profiles that switch **automatically by talent loadout and situation**.
 
-> Status: **v0.1.0.** Everything is built. Call of the Elements (level 20) is the one part not
+> Status: **v1.0.0.** Everything is built. Call of the Elements (level 20) is the one part not
 > yet checked in game. `docs/decisions.md` logs every design decision, and
 > `docs/testing.md` holds the in-game checklists.
 
@@ -12,7 +12,7 @@ and instance type. That, the per-profile cast sequence and the themes are what t
 
 ## Installing (players)
 
-1. Unzip `TotemicAccord-0.1.0.zip` so the folder lands at
+1. Unzip `TotemicAccord-1.0.0.zip` so the folder lands at
    `<World of Warcraft>\_forever_\Interface\AddOns\TotemicAccord`.
 2. Restart the game (a `/reload` is not enough for a new addon) and log in on a Shaman.
    On other classes it stays silent and does nothing.

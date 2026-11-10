@@ -28,7 +28,7 @@ C_AddOns = {
 	GetAddOnMetadata = function(_, field)
 		local meta = {
 			Title = "Totemic Accord",
-			Version = "0.1.0",
+			Version = "1.0.0",
 		}
 		return meta[field]
 	end,
@@ -424,7 +424,7 @@ step("global TotemicAccord was exposed", function()
 end)
 step("identity read back from the TOC", function()
 	assert(ns.addon.DISPLAY_NAME == "Totemic Accord", "bad display name")
-	assert(ns.addon.VERSION == "0.1.0", "bad version")
+	assert(ns.addon.VERSION == "1.0.0", "bad version")
 end)
 step("OnInitialize", function() ns.addon:OnInitialize() end)
 step("saved-variable defaults present", function()
