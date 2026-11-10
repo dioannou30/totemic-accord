@@ -24,7 +24,7 @@ and instance type. That, the per-profile cast sequence and the themes are what t
 |---|---|---|
 | **Earth, Fire, Water, Air** | cast that element's totem from the active profile (highest rank) | totem chooser (also the small arrow tab) |
 | **Action** | cast sequence of your four totems; becomes **Call of the Elements** once learned (level 20) | — |
-| **Totemic Projection** | pulls your totems to you | — |
+| **Totemic Recall** | returns your totems to the earth and refunds 25% of their mana | — |
 | **Profile** | profile menu: Auto, every profile, "Edit profiles…" | — |
 
 - An element button gets an **outline in the accent colour** while its totem is on the ground.

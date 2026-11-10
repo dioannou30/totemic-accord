@@ -5,7 +5,7 @@
 	can run, run; the rest are listed as pending so the output doubles as a progress map.
 
 	It also prints the M1 VERIFY answers (interface number, spec mapping, instance type,
-	Call of the Elements and Totemic Projection) so they come out of one command instead
+	Call of the Elements and Totemic Recall) so they come out of one command instead
 	of six /dump calls typed in the middle of the game.
 
 	Everything here reads; nothing writes. Not yet checked against combat-time secret
@@ -224,26 +224,12 @@ function SelfTest:Run()
 		fail(L.TEST_CALL_OF_ELEMENTS, "TOTEM_MULTI_CAST_SUMMON_SPELLS missing")
 	end
 
-	-- Totemic Projection: the spellID still has to be confirmed in game, so look it
-	-- up by name and report whatever the client says.
-	-- By name only works once learned. The spellbook does not list unlearned spells on
-	-- Forever, so also probe candidate IDs directly: C_Spell resolves any spell in the
-	-- client's data. 437009 is Wowhead's Forever ID; it may have been renamed
-	-- "Totemic Call", so both names are tried too.
-	for _, name in ipairs({ "Totemic Projection", "Totemic Call" }) do
-		local found = spellName(name)
-		if found then
-			info(L.TEST_PROJECTION, ("known by name: %s"):format(tostring(found)))
-		end
-	end
-	for _, id in ipairs({ ns.Data.PROJECTION_SPELL_ID }) do
-		info(L.TEST_PROJECTION, ("spellID %d resolves to %s, known=%s"):format(
-			id, tostring(spellName(id)), tostring(spellKnown(id))))
-	end
-	for name, id in pairs(ns.Data.spellbook or {}) do
-		if name:find("Projection") or name:find("Totemic") then
-			info("Spellbook match", ("%s (%s)"):format(name, tostring(id)))
-		end
+	-- Totemic Recall, from Blizzard's TOTEM_MULTI_CAST_RECALL_SPELLS.
+	local rName, rID, rKnown = ns.Data:Recall()
+	if rID then
+		info(L.TEST_RECALL, ("spellID %d, %s, known=%s"):format(rID, tostring(rName), tostring(rKnown)))
+	else
+		fail(L.TEST_RECALL, "TOTEM_MULTI_CAST_RECALL_SPELLS missing")
 	end
 
 	-- Totem slots, from the constants rather than hardcoded numbers.
@@ -295,7 +281,7 @@ function SelfTest:Run()
 	end
 
 	-- Not-yet-learned spells the spellbook already shows, with their levels. This is how
-	-- Call of the Elements and Totemic Projection get identified before they are learned.
+	-- Call of the Elements gets identified before they are learned.
 	local upcoming = {}
 	for name, f in pairs(Data.future or {}) do
 		if name:find("Totem") or name:find("Call of the") then

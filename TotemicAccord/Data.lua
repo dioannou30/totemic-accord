@@ -52,19 +52,17 @@ end
 
 -- ------------------------------------------------------------------ special spells
 
---- Totemic Projection. Not in Forever's UI source; 437009 comes from Wowhead's Forever
---- spell database (learned at level 22). 108287, its ID in Mists of Pandaria, does not
---- exist in Forever's client data. Guides disagree on whether it was renamed "Totemic
---- Call" on 2026-11-02, so the name is always read from the spell ID, never hardcoded.
---- VERIFY: /ta selftest prints what 437009 resolves to.
-Data.PROJECTION_SPELL_ID = 437009
-Data.PROJECTION_NAME = "Totemic Projection"
+--- Totemic Recall (returns your totems, refunds 25% of their mana): the third button.
+--- The ID is Blizzard's own TOTEM_MULTI_CAST_RECALL_SPELLS[1] from Forever's Constants.lua,
+--- 36936, confirmed in game by Dio's tooltip. It replaced Totemic Projection, which Forever
+--- doesn't have in a usable form (437009 resolves to "Totemic Call").
+Data.RECALL_NAME = "Totemic Recall"
 
 --- name, spellID, known
-function Data:Projection()
-	local id = Data.PROJECTION_SPELL_ID
-	local name = C_Spell.GetSpellName(id) or Data.PROJECTION_NAME
-	local known = IsPlayerSpell(id) or (self.spellbook and self.spellbook[name] ~= nil) or false
+function Data:Recall()
+	local id = TOTEM_MULTI_CAST_RECALL_SPELLS and TOTEM_MULTI_CAST_RECALL_SPELLS[1]
+	local name = id and C_Spell.GetSpellName(id) or Data.RECALL_NAME
+	local known = (id and IsPlayerSpell(id)) or (self.spellbook and self.spellbook[name] ~= nil) or false
 	return name, id, known
 end
 

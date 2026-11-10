@@ -131,7 +131,7 @@ local function buildSpecs()
 		}
 	end
 	specs[#specs + 1] = { kind = "action", key = "action", name = frameName("Action") }
-	specs[#specs + 1] = { kind = "projection", key = "projection", name = frameName("Projection") }
+	specs[#specs + 1] = { kind = "recall", key = "recall", name = frameName("Recall") }
 	specs[#specs + 1] = { kind = "profile", key = "profile", name = frameName("Profile") }
 	return specs
 end
@@ -367,7 +367,7 @@ function Bar:Layout()
 	f.sep:ClearAllPoints()
 	if layout == "grid" then
 		-- Elements in a 2x2 block in their slot positions (no collapsing, so the
-		-- block keeps its shape), Action over Projection, Profile centred at the end.
+		-- block keeps its shape), Action over Recall, Profile centred at the end.
 		f.sep:Hide()
 		for i, b in ipairs(self.buttons) do
 			if b.spec.kind == "element" and b:IsShown() then
@@ -376,7 +376,7 @@ function Bar:Layout()
 			end
 		end
 		place(self.byKey.action, PAD + 2 * (SIZE + GAP), PAD)
-		place(self.byKey.projection, PAD + 2 * (SIZE + GAP), PAD + SIZE + GAP)
+		place(self.byKey.recall, PAD + 2 * (SIZE + GAP), PAD + SIZE + GAP)
 		place(self.byKey.profile, PAD + 3 * (SIZE + GAP), PAD + (SIZE + GAP) / 2)
 		width = PAD * 2 + 4 * SIZE + 3 * GAP
 		height = PAD * 2 + 2 * SIZE + GAP
@@ -455,7 +455,7 @@ function Bar:Refresh()
 		end
 	end
 	self.actionMode = self:ActionMode()
-	self.projection = { ns.Data:Projection() }
+	self.recall = { ns.Data:Recall() }
 	self.frame.label:SetText(self:LabelText())
 	-- The profile name under the bar is optional (off by default, at Dio's request); the
 	-- Profile button's code and tooltip show the same information.
@@ -490,8 +490,8 @@ function Bar:SecureSpec(b)
 	local kind = b.spec.kind
 	if kind == "element" and b.totem then
 		return "spell", b.totem.name, nil
-	elseif kind == "projection" then
-		return "spell", self.projection[1], nil
+	elseif kind == "recall" then
+		return "spell", self.recall[1], nil
 	elseif kind == "action" then
 		if self.actionMode == "seq" then
 			-- A macro, so the game's own /castsequence keeps the step state.
@@ -556,9 +556,9 @@ local function faceText(b, mode)
 		return b.totem and b.totem.code or L.EMPTY_SLOT
 	elseif kind == "action" then
 		return mode == "cote" and L.ACTION_COTE or L.ACTION_SEQ
-	elseif kind == "projection" then
-		-- From the spell's real name: Forever renamed Totemic Projection to Totemic Call.
-		return Bar.projection and ns.Data.Abbreviate(Bar.projection[1]) or L.PROJECTION_SHORT
+	elseif kind == "recall" then
+		-- From the spell's real name, as the client reports it.
+		return Bar.recall and ns.Data.Abbreviate(Bar.recall[1]) or L.RECALL_SHORT
 	end
 	return ns.Profiles:ShortCode(ns.Profiles.applied)
 end
@@ -570,8 +570,8 @@ local function faceIcon(b, mode)
 		return C_Spell.GetSpellTexture(b.totem.spellID)
 	elseif kind == "action" and mode == "cote" then
 		return C_Spell.GetSpellTexture(TOTEM_MULTI_CAST_SUMMON_SPELLS[1])
-	elseif kind == "projection" and Bar.projection and Bar.projection[3] then
-		return C_Spell.GetSpellTexture(Bar.projection[2])
+	elseif kind == "recall" and Bar.recall and Bar.recall[3] then
+		return C_Spell.GetSpellTexture(Bar.recall[2])
 	end
 	return nil
 end
@@ -579,9 +579,9 @@ end
 function Bar:StyleButton(b, theme)
 	local s = settings()
 	local kind, key = b.spec.kind, b.spec.key
-	-- "empty" = nothing to cast: an element without a totem, or Projection not learned.
+	-- "empty" = nothing to cast: an element without a totem, or Recall not learned.
 	local empty = (kind == "element" and not b.totem)
-		or (kind == "projection" and not (self.projection and self.projection[3]))
+		or (kind == "recall" and not (self.recall and self.recall[3]))
 	local mode = self.actionMode
 
 	-- Ink: element colour for elements, accent for the action button.
@@ -626,7 +626,7 @@ function Bar:StyleButton(b, theme)
 			kind == "profile" and 8 or 13, "OUTLINE")
 		b.text:SetShadowOffset(1, -1)
 		-- Nothing-to-cast faces use the theme's muted colour. They were 40% grey, which
-		-- vanished on the dark gradients (Totemic Projection read as blank in game).
+		-- vanished on the dark gradients (the third button read as blank in game).
 		if empty then
 			b.text:SetTextColor(RGB(theme.muted))
 		else
@@ -707,10 +707,10 @@ function Bar:OnEnterButton(b)
 		GameTooltip:AddLine(L.TIP_RIGHT_CLICK, 0.6, 0.6, 0.6)
 	elseif kind == "action" then
 		GameTooltip:SetText(self.actionMode == "cote" and L.TIP_ACTION_COTE or L.TIP_ACTION_SEQ)
-	elseif kind == "projection" and self.projection[3] then
-		GameTooltip:SetSpellByID(self.projection[2])
-	elseif kind == "projection" then
-		GameTooltip:SetText(L.TIP_PROJECTION_UNKNOWN)
+	elseif kind == "recall" and self.recall[3] then
+		GameTooltip:SetSpellByID(self.recall[2])
+	elseif kind == "recall" then
+		GameTooltip:SetText(L.TIP_RECALL_UNKNOWN)
 	else
 		local P = ns.Profiles
 		GameTooltip:SetText(P:Label(P.applied))

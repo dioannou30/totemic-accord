@@ -67,12 +67,12 @@ local L = ns.L
 BINDING_HEADER_TOTEMICACCORD = L.BIND_HEADER
 Keybinds.FRAMES = {
 	"TotemicAccordEarth", "TotemicAccordFire", "TotemicAccordWater", "TotemicAccordAir",
-	"TotemicAccordAction", "TotemicAccordProjection", "TotemicAccordProfile",
+	"TotemicAccordAction", "TotemicAccordRecall", "TotemicAccordProfile",
 }
 for frame, label in pairs({
 	TotemicAccordEarth = L.BIND_EARTH, TotemicAccordFire = L.BIND_FIRE,
 	TotemicAccordWater = L.BIND_WATER, TotemicAccordAir = L.BIND_AIR,
-	TotemicAccordAction = L.BIND_ACTION, TotemicAccordProjection = L.BIND_PROJECTION,
+	TotemicAccordAction = L.BIND_ACTION, TotemicAccordRecall = L.BIND_RECALL,
 	TotemicAccordProfile = L.BIND_PROFILE,
 }) do
 	_G["BINDING_NAME_" .. Keybinds.Command(frame)] = label

@@ -396,7 +396,7 @@ local function appearanceTab()
 		bind_water = keybind(43, "TotemicAccordWater", L.BIND_WATER),
 		bind_air = keybind(44, "TotemicAccordAir", L.BIND_AIR),
 		bind_action = keybind(45, "TotemicAccordAction", L.BIND_ACTION),
-		bind_projection = keybind(46, "TotemicAccordProjection", L.BIND_PROJECTION),
+		bind_recall = keybind(46, "TotemicAccordRecall", L.BIND_RECALL),
 		bind_profile = keybind(47, "TotemicAccordProfile", L.BIND_PROFILE),
 	} }
 end

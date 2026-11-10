@@ -39,9 +39,6 @@ C_Spell = {
 	GetSpellName = function(id) return NAME_BY_ID and NAME_BY_ID[id] end,
 	GetSpellInfo = function(idOrName)
 		if idOrName == 66842 then return { name = "Call of the Elements", spellID = 66842 } end
-		if idOrName == "Totemic Projection" then
-			return { name = "Totemic Projection", spellID = 108287 }
-		end
 		return nil
 	end,
 }
@@ -86,7 +83,7 @@ local SPELLBOOK = {
 	{ "Lightning Bolt", 403 }, { "Totemic Recall", 36936 },
 	{ "Searing Totem", 3599 },  -- a second rank entry with the same name
 }
-local FUTURE = { { "Call of the Elements", 66842, 20 }, { "Totemic Projection", 108287, 30 } }
+local FUTURE = { { "Call of the Elements", 66842, 20 } }
 NAME_BY_ID = {}  -- global on purpose: the C_Spell stub above reads it
 for _, e in ipairs(SPELLBOOK) do NAME_BY_ID[e[2]] = e[1] end
 for _, e in ipairs(FUTURE) do NAME_BY_ID[e[2]] = e[1] end
@@ -264,7 +261,6 @@ function EditMacro(i, name, icon, body)
 end
 
 -- M4: bindings and the confirmation popup
-NAME_BY_ID[437009] = "Totemic Projection"
 scenario.bindingActions = {}  -- key -> command
 scenario.saved = 0
 scenario.popup = nil
@@ -497,7 +493,6 @@ step("unknown totem is reported, not guessed", function()
 end)
 step("future spells carry their learn level", function()
 	assert(D.future["Call of the Elements"].level == 20, "no level for CotE")
-	assert(D.future["Totemic Projection"].spellID == 108287)
 end)
 step("dropping a totem out of combat teaches its element", function()
 	scenario.activeTotem[AIR_TOTEM_SLOT] = 999001
@@ -557,7 +552,7 @@ local function topleft(frame)
 end
 local function btn(name) return FRAMES["TotemicAccord" .. name] end
 step("seven named secure buttons exist", function()
-	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Recall", "Profile" }) do
 		assert(btn(n), "missing TotemicAccord" .. n)
 	end
 	assert(#B.buttons == 7)
@@ -565,7 +560,7 @@ end)
 step("horizontal: 44px buttons, 6px gaps, separator before Action", function()
 	B:Set("layout", "horizontal")
 	local xs = {}
-	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Recall", "Profile" }) do
 		xs[#xs + 1] = (topleft(btn(n)))
 	end
 	-- 6,56,106,156 | sep at 206 (1px) | 213, 263, 313
@@ -579,11 +574,11 @@ step("vertical: same spacing down the y axis", function()
 	assert(y == 313, "profile y " .. y)
 	assert(B.frame._w == 56 and B.frame._h == 363, ("bar %sx%s"):format(B.frame._w, B.frame._h))
 end)
-step("grid: 2x2 elements, Action over Projection, Profile centred", function()
+step("grid: 2x2 elements, Action over Recall, Profile centred", function()
 	B:Set("layout", "grid")
 	local function at(n) local x, y = topleft(btn(n)); return x .. ":" .. y end
 	assert(at("Earth") == "6:6" and at("Fire") == "56:6" and at("Water") == "6:56" and at("Air") == "56:56", "elements")
-	assert(at("Action") == "106:6" and at("Projection") == "106:56", "action/projection")
+	assert(at("Action") == "106:6" and at("Recall") == "106:56", "action/recall")
 	assert(at("Profile") == "156:31", "profile " .. at("Profile"))
 	assert(not B.frame.sep._shown, "separator should be hidden in grid")
 	assert(B.frame._w == 206 and B.frame._h == 106, ("bar %sx%s"):format(B.frame._w, B.frame._h))
@@ -693,19 +688,27 @@ step("buttons take both click halves so 'cast on key down' is honoured", functio
 	local c = btn("Earth")._clicks
 	assert(c and c[1] == "AnyUp" and c[2] == "AnyDown", "RegisterForClicks")
 end)
-step("projection casts by the name its spell ID resolves to", function()
-	local p = btn("Projection")
-	assert(p:GetAttribute("type") == "spell" and p:GetAttribute("spell") == "Totemic Projection",
+step("recall casts Totemic Recall by name, its ID from Blizzard's constant", function()
+	local p = btn("Recall")
+	assert(B.recall[2] == 36936, tostring(B.recall[2]))
+	assert(p:GetAttribute("type") == "spell" and p:GetAttribute("spell") == "Totemic Recall",
 		tostring(p:GetAttribute("spell")))
-end)
-step("projection reads as muted until learned", function()
-	assert(B.projection[3] == false, "should be unknown at level 18")
-	local muted = { ns.Themes.RGB(ns.Themes:Current().muted) }
-	local c = btn("Projection").text._textColor
-	assert(c and c[1] == muted[1] and c[2] == muted[2] and c[3] == muted[3], "projection text not muted")
+	assert(B.recall[3] == true, "Totemic Recall is in the spellbook")
 	local e = btn("Earth").text._textColor
 	local earthInk = { ns.Themes.RGB(ns.Themes:Current().earth) }
 	assert(e and e[1] == earthInk[1], "earth text not in the element colour")
+end)
+step("recall reads as muted until learned", function()
+	local saved = D.spellbook["Totemic Recall"]
+	D.spellbook["Totemic Recall"] = nil
+	B:Refresh()
+	assert(B.recall[3] == false, "should be unknown")
+	local muted = { ns.Themes.RGB(ns.Themes:Current().muted) }
+	local c = btn("Recall").text._textColor
+	assert(c and c[1] == muted[1] and c[2] == muted[2] and c[3] == muted[3], "recall text not muted")
+	D.spellbook["Totemic Recall"] = saved
+	B:Refresh()
+	assert(B.recall[3] == true)
 end)
 step("profile button never casts (Action is covered by the M7 tests)", function()
 	assert(btn("Profile"):GetAttribute("type") == nil)
@@ -733,7 +736,7 @@ step("a totem change in combat is queued, then applied after combat", function()
 end)
 step("Key Bindings menu names exist for all seven buttons", function()
 	assert(BINDING_HEADER_TOTEMICACCORD == "Totemic Accord")
-	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Projection", "Profile" }) do
+	for _, n in ipairs({ "Earth", "Fire", "Water", "Air", "Action", "Recall", "Profile" }) do
 		assert(_G["BINDING_NAME_CLICK TotemicAccord" .. n .. ":LeftButton"], n)
 	end
 end)
@@ -1488,7 +1491,7 @@ step("per-button key capture: bind, replace (with a note), clear, refused in com
 	earth.set({}, "ALT-3")
 	scenario.inCombat = false
 	assert(earth.get({}) == "", "bound in combat")
-	assert(opt("appearance", "bind_projection") and opt("appearance", "bind_profile"), "missing controls")
+	assert(opt("appearance", "bind_recall") and opt("appearance", "bind_profile"), "missing controls")
 end)
 step("the profile menu has 'Edit profiles...', opening the options on that tab", function()
 	btn("Profile")._scripts.OnClick(btn("Profile"))

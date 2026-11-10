@@ -60,7 +60,7 @@ Themes.LIST = {
 		gradients = {
 			earth = { "#c49a58", "#6e4c1f" }, fire = { "#f07c42", "#8f2b10" },
 			water = { "#5ea8ee", "#1d4f8f" }, air = { "#c9dde9", "#5d7e93" },
-			action = { "#d9b864", "#7a5a1d" }, projection = { "#7fb08a", "#2f5a3a" },
+			action = { "#d9b864", "#7a5a1d" }, recall = { "#7fb08a", "#2f5a3a" },
 			profile = { "#6a6f86", "#2b2f40" }, empty = { "#22262e", "#22262e" },
 		},
 	},

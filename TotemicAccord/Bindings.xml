@@ -15,7 +15,7 @@
 	</Binding>
 	<Binding name="CLICK TotemicAccordAction:LeftButton" category="ADDONS">
 	</Binding>
-	<Binding name="CLICK TotemicAccordProjection:LeftButton" category="ADDONS">
+	<Binding name="CLICK TotemicAccordRecall:LeftButton" category="ADDONS">
 	</Binding>
 	<Binding name="CLICK TotemicAccordProfile:LeftButton" category="ADDONS">
 	</Binding>
