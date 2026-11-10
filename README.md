@@ -6,7 +6,7 @@ Set up which four totems you want for each talent loadout and each kind of conte
 dungeon, raid, battleground, arena). When you change loadout or zone, the bar switches to the
 right set on its own. One key drops them all.
 
-![Version](https://img.shields.io/badge/version-1.0.0-2ea44f)
+![Version](https://img.shields.io/badge/version-0.9.0-orange)
 ![Client](https://img.shields.io/badge/WoW%20Forever-1.60.1%20(16001)-blue)
 ![Class](https://img.shields.io/badge/class-Shaman-0070DD)
 
@@ -25,13 +25,13 @@ right set on its own. One key drops them all.
 - **Hide the default totem bar** if you only want this one.
 - Combat-safe: anything the game blocks mid-fight waits and applies when combat ends.
 
-> **Status: 1.0.0.** Everything above is built and checked in game, except Call of the Elements
+> **Status: 0.9.0.** Everything above is built and checked in game, except Call of the Elements
 > itself (it needs a level 20 shaman). If you hit a problem, open an issue with the output of
 > `/ta selftest`.
 
 ## Installing
 
-1. Download `TotemicAccord-1.0.0.zip` from the
+1. Download `TotemicAccord-0.9.0.zip` from the
    [Releases](https://github.com/dioannou30/totemic-arrord/releases) page.
    Don't use GitHub's green **Code → Download ZIP** button: that gives you the whole project,
    not the addon folder.
