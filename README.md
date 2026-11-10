@@ -1,22 +1,48 @@
 # Totemic Accord
 
-A themed shaman totem bar for **World of Warcraft: Forever** (client 1.60.1, interface
-16001), with totem profiles that switch **automatically by talent loadout and situation**.
+**A shaman totem bar for World of Warcraft: Forever that swaps your totems for you.**
 
-> Status: **v1.0.0.** Everything is built. Call of the Elements (level 20) is the one part not
-> yet checked in game. `docs/decisions.md` logs every design decision, and
-> `docs/testing.md` holds the in-game checklists.
+Set up which four totems you want for each talent loadout and each kind of content (open world,
+dungeon, raid, battleground, arena). When you change loadout or zone, the bar switches to the
+right set on its own. One key drops them all.
 
-Other Forever totem bars exist, but none of them switches totem sets automatically by loadout
-and instance type. That, the per-profile cast sequence and the themes are what this one adds.
+![Version](https://img.shields.io/badge/version-1.0.0-2ea44f)
+![Client](https://img.shields.io/badge/WoW%20Forever-1.60.1%20(16001)-blue)
+![Class](https://img.shields.io/badge/class-Shaman-0070DD)
 
-## Installing (players)
+## Features
 
-1. Unzip `TotemicAccord-1.0.0.zip` so the folder lands at
+- **Automatic totem profiles** by talent loadout and situation, with a clear fallback order and
+  a manual pin when you want to override it.
+- **One button for all four totems:** a cast sequence before level 20, then **Call of the
+  Elements**, fed with the active profile's totems.
+- **Totem chooser** on every element button (right-click), plus **Totemic Recall** on the bar.
+- **Active-totem outline:** a button lights up while its totem is on the ground.
+- **Keybinds** set from the options or the game's Key Bindings menu, with one-click suggestions.
+- **Four themes** (Emerald, Tokyo Night, Catppuccin Mocha, Blizzard classic), three layouts,
+  initials or icons, scale, spacing and opacity.
+- **Share setups** with friends as a `TA1:` text string.
+- **Hide the default totem bar** if you only want this one.
+- Combat-safe: anything the game blocks mid-fight waits and applies when combat ends.
+
+> **Status: 1.0.0.** Everything above is built and checked in game, except Call of the Elements
+> itself (it needs a level 20 shaman). If you hit a problem, open an issue with the output of
+> `/ta selftest`.
+
+## Installing
+
+1. Download `TotemicAccord-1.0.0.zip` from the
+   [Releases](https://github.com/dioannou30/totemic-arrord/releases) page.
+   Don't use GitHub's green **Code → Download ZIP** button: that gives you the whole project,
+   not the addon folder.
+2. Extract it so the folder lands at
    `<World of Warcraft>\_forever_\Interface\AddOns\TotemicAccord`.
-2. Restart the game (a `/reload` is not enough for a new addon) and log in on a Shaman.
+3. Restart the game (a `/reload` is not enough for a new addon) and log in on a Shaman.
    On other classes it stays silent and does nothing.
-3. Type `/ta` to open the options.
+4. Type `/ta` to open the options.
+
+To build the zip yourself from a clone, run `.\tools\package.ps1` (see
+[Sharing with friends](#sharing-with-friends)).
 
 ## The bar
 
@@ -100,9 +126,6 @@ Totemic Accord too.
 
 # Development
 
-The interactive visual reference is `docs/mock/totemic-accord-mock.html`; open it in a
-browser. `docs/CLAUDE_CODE_PROMPT.md` is the original spec.
-
 ## Requirements (development)
 
 | | |
@@ -155,7 +178,7 @@ lua5.1 tools/smoke.lua
 ```
 
 It proves the code runs without launching the game. It is not a substitute for
-`docs/testing.md`, and it is deliberately not part of `tools/check`.
+testing in game, and it is deliberately not part of `tools/check`.
 
 The API surface is not hardcoded anywhere. `check_api.py` extracts it from Blizzard's own
 UI source and writes `tools/wow_globals.lua`, which `.luacheckrc` loads — so one source of
@@ -170,8 +193,7 @@ a game patch so the allowlist tracks the live API.
 
 ## Testing in game
 
-`docs/testing.md` has a checklist per milestone and records the **VERIFY** answers that
-later work depends on. Turn on Lua errors first:
+Turn on Lua errors before testing, and run `/ta selftest` for a diagnostics report:
 
 ```
 /console scriptErrors 1
@@ -189,7 +211,6 @@ Version comes from the `## Version:` line of the TOC. They extract so the folder
 ## Layout
 
 ```
-docs/          spec, decisions log, test checklists, visual mock
 tools/         deploy, check, package, API allowlist linter
 reference/     gitignored: Blizzard's UI source for Forever (API source of truth)
 TotemicAccord/ the addon folder that gets deployed
