@@ -1,15 +1,14 @@
 --[[
 	Flyout.lua -- per-element totem chooser, mouse only.
 
-	Each element button gets a small arrow tab (in the bar's theme). Clicking it, or
-	right-clicking the button, opens Blizzard's context menu with that element's known
-	totems plus "none"; picking one changes that element in the APPLIED profile
+	Each element button gets a small arrow tab. Clicking it opens a strip of that element's
+	known totems plus "none"; picking one changes that element in the APPLIED profile
 	(Profiles:SetElement, which creates the Global default if nothing is applied yet).
 
-	Nothing here is secure: the chooser only edits saved data, then the bar rewrites its
-	secure buttons. That rewrite is blocked in combat, so the chooser refuses to open in
-	combat (chat message instead) and refuses picks made in combat. It is not a keyboard
-	chooser -- OPie covers that.
+	Nothing here is secure: the flyout only edits saved data, then the bar rewrites its
+	secure buttons. That rewrite is blocked in combat, so the flyout refuses to open in
+	combat (chat message instead) and closes itself when combat starts. It is not a
+	keyboard flyout -- OPie covers that.
 ]]
 
 local _, ns = ...
@@ -19,7 +18,9 @@ local RGB = Themes.RGB
 
 local Flyout = {}
 ns.Flyout = Flyout
+LibStub("AceEvent-3.0"):Embed(Flyout)
 
+local ITEM, GAP, PAD = 36, 4, 4
 -- UI-SortArrow's triangle occupies this part of the file and points down.
 local ARROW_COORDS = { 0, 0.5625, 0, 1 }
 local ROTATION = { down = 0, up = math.pi, left = -math.pi / 2, right = math.pi / 2 }
@@ -93,59 +94,193 @@ function Flyout:LayoutArrows()
 	end
 end
 
--- ------------------------------------------------------------------ the chooser
+-- ------------------------------------------------------------------ the strip
 
-local ELEMENT_NAMES = {
-	earth = L.ELEMENT_EARTH, fire = L.ELEMENT_FIRE, water = L.ELEMENT_WATER, air = L.ELEMENT_AIR,
-}
-
---- The chooser's entries for one element button: "none" first, then every known totem.
---- Each is { text, totem (nil for none), checked }.
-function Flyout:Entries(button)
-	local current = button.totem and button.totem.name
-	local entries = { { text = L.FLYOUT_NONE, checked = current == nil } }
-	for _, t in ipairs(ns.Data:GetTotems(button.spec.key)) do
-		local icon = C_Spell.GetSpellTexture(t.spellID)
-		entries[#entries + 1] = {
-			text = (icon and ("|T%s:16:16:0:0:64:64:5:59:5:59|t "):format(icon) or "") .. t.name,
-			totem = t,
-			checked = t.name == current,
-		}
+function Flyout:CreateFrame()
+	local f = CreateFrame("Frame", "TotemicAccordFlyout", UIParent)
+	f:SetFrameStrata("DIALOG")
+	f:SetClampedToScreen(true)
+	f:EnableMouse(true)
+	f.bg = f:CreateTexture(nil, "BACKGROUND")
+	f.bg:SetAllPoints()
+	f.edges = {}
+	for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+		f.edges[side] = f:CreateTexture(nil, "BORDER")
 	end
-	return entries
+	f.edges.TOP:SetPoint("TOPLEFT"); f.edges.TOP:SetPoint("TOPRIGHT"); f.edges.TOP:SetHeight(1)
+	f.edges.BOTTOM:SetPoint("BOTTOMLEFT"); f.edges.BOTTOM:SetPoint("BOTTOMRIGHT"); f.edges.BOTTOM:SetHeight(1)
+	f.edges.LEFT:SetPoint("TOPLEFT"); f.edges.LEFT:SetPoint("BOTTOMLEFT"); f.edges.LEFT:SetWidth(1)
+	f.edges.RIGHT:SetPoint("TOPRIGHT"); f.edges.RIGHT:SetPoint("BOTTOMRIGHT"); f.edges.RIGHT:SetWidth(1)
+	f.items = {}
+	f:Hide()
+	self.frame = f
+	return f
 end
 
---- Open Blizzard's context menu for this element (Dio preferred it to the themed strip).
+function Flyout:Item(i)
+	local f = self.frame
+	local it = f.items[i]
+	if it then
+		return it
+	end
+	it = CreateFrame("Button", nil, f)
+	it:SetSize(ITEM, ITEM)
+	it.bg = it:CreateTexture(nil, "BACKGROUND")
+	it.bg:SetAllPoints()
+	it.icon = it:CreateTexture(nil, "ARTWORK")
+	it.icon:SetPoint("TOPLEFT", 1, -1)
+	it.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+	it.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	it.text = it:CreateFontString(nil, "OVERLAY")
+	it.text:SetFontObject(GameFontNormal)
+	it.text:SetPoint("CENTER")
+	it.ring = it:CreateTexture(nil, "OVERLAY")
+	it.ring:SetPoint("TOPLEFT", -2, 2)
+	it.ring:SetPoint("BOTTOMRIGHT", 2, -2)
+	it:SetScript("OnClick", function(item) Flyout:Pick(item.element, item.totem) end)
+	it:SetScript("OnEnter", function(item)
+		GameTooltip:SetOwner(item, "ANCHOR_TOP")
+		if item.totem then
+			GameTooltip:SetSpellByID(item.totem.spellID)
+		else
+			GameTooltip:SetText(L.FLYOUT_NONE)
+		end
+		GameTooltip:Show()
+	end)
+	it:SetScript("OnLeave", function() GameTooltip:Hide() end)
+	f.items[i] = it
+	return it
+end
+
+--- Which totem name the applied profile has for this element now.
+local function currentName(button)
+	return button.totem and button.totem.name
+end
+
+function Flyout:Fill(button)
+	local f = self.frame
+	local theme = Themes:Current()
+	local element = button.spec.key
+	local entries = { false } -- "none" first, nearest the bar
+	for _, t in ipairs(ns.Data:GetTotems(element)) do
+		entries[#entries + 1] = t
+	end
+	local icons = settings().buttonStyle == "icons"
+	local current = currentName(button)
+	for i, t in ipairs(entries) do
+		local it = self:Item(i)
+		it.element, it.totem = element, t or nil
+		it.bg:SetColorTexture(RGB(t and theme.button or theme.panel))
+		local icon = icons and t and C_Spell.GetSpellTexture(t.spellID) or nil
+		it.icon:SetShown(icon ~= nil)
+		if icon then it.icon:SetTexture(icon) end
+		it.text:SetShown(icon == nil)
+		it.text:SetFont(Themes.FONTS.initials, 11, "")
+		it.text:SetText(t and t.code or L.EMPTY_SLOT)
+		it.text:SetTextColor(RGB(t and theme[element] or theme.muted))
+		local isCurrent = (t and t.name or nil) == current
+		it.ring:SetShown(isCurrent)
+		it.ring:SetColorTexture(RGB(theme.accent, 0.9))
+		it.ring:SetDrawLayer("BACKGROUND", -1)
+		it:Show()
+	end
+	for i = #entries + 1, #f.items do
+		f.items[i]:Hide()
+	end
+	f.bg:SetColorTexture(RGB(theme.panel, 0.97))
+	for _, tex in pairs(f.edges) do
+		tex:SetColorTexture(RGB(theme.border))
+	end
+	return #entries
+end
+
+--- Position the strip in the configured direction, first item nearest the button.
+function Flyout:Place(button, count)
+	local f = self.frame
+	local dir = settings().flyoutDir
+	local vertical = dir == "up" or dir == "down"
+	local long = PAD * 2 + count * ITEM + (count - 1) * GAP
+	local short = PAD * 2 + ITEM
+	f:SetSize(vertical and short or long, vertical and long or short)
+	f:SetScale(ns.Bar.frame:GetScale())
+	f:ClearAllPoints()
+	-- Leave room for the arrow tab on the side it sits.
+	local clearance = 16
+	if dir == "up" then
+		f:SetPoint("BOTTOM", button, "TOP", 0, clearance)
+	elseif dir == "down" then
+		f:SetPoint("TOP", button, "BOTTOM", 0, -6)
+	elseif dir == "left" then
+		f:SetPoint("RIGHT", button, "LEFT", -clearance, 0)
+	else
+		f:SetPoint("LEFT", button, "RIGHT", 6, 0)
+	end
+	for i = 1, count do
+		local it = f.items[i]
+		local offset = PAD + (i - 1) * (ITEM + GAP)
+		it:ClearAllPoints()
+		if dir == "up" then
+			it:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", PAD, offset)
+		elseif dir == "down" then
+			it:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -offset)
+		elseif dir == "left" then
+			it:SetPoint("TOPRIGHT", f, "TOPRIGHT", -offset, -PAD)
+		else
+			it:SetPoint("TOPLEFT", f, "TOPLEFT", offset, -PAD)
+		end
+	end
+end
+
+-- ------------------------------------------------------------------ open / pick
+
 function Flyout:Toggle(button)
+	local f = self.frame or self:CreateFrame()
+	if f:IsShown() and self.owner == button then
+		self:Close()
+		return
+	end
 	if InCombatLockdown() then
 		ns.addon:Log(L.COMBAT_NO_TOTEM_CHANGE)
 		return
 	end
-	local element = button.spec.key
-	local entries = self:Entries(button)
-	MenuUtil.CreateContextMenu(button, function(_, root)
-		root:CreateTitle(ELEMENT_NAMES[element] or element)
-		for _, e in ipairs(entries) do
-			local radio = root:CreateRadio(e.text, function() return e.checked end,
-				function() Flyout:Pick(element, e.totem) end)
-			if e.totem and radio and radio.SetTooltip then
-				radio:SetTooltip(function(tooltip) tooltip:SetSpellByID(e.totem.spellID) end)
-			end
-		end
-	end)
+	self.owner = button
+	self:Place(button, self:Fill(button))
+	f:Show()
 end
 
---- The menu can still be open when combat starts (Blizzard owns and closes it), so a
---- pick made in combat is refused here: the bar can't rewrite secure buttons then.
+function Flyout:Close()
+	if self.frame then
+		self.frame:Hide()
+	end
+	self.owner = nil
+end
+
 function Flyout:Pick(element, totem)
+	-- The flyout closes when combat starts, but a click can still race it.
 	if InCombatLockdown() then
 		ns.addon:Log(L.COMBAT_NO_TOTEM_CHANGE)
+		self:Close()
 		return
 	end
 	ns.Profiles:SetElement(element, totem and totem.name or nil)
+	self:Close()
+end
+
+-- ------------------------------------------------------------------ settings
+
+local DIRECTIONS = { up = true, down = true, left = true, right = true }
+
+function Flyout:SetDirection(dir)
+	if not DIRECTIONS[dir] then
+		return false
+	end
+	settings().flyoutDir = dir
+	self:Close()
+	return true
 end
 
 function Flyout:Init()
+	self:RegisterEvent("PLAYER_REGEN_DISABLED", "Close")
 	Themes:Register(function(theme)
 		for _, b in ipairs(ns.Bar.buttons or {}) do
 			if b.arrow then

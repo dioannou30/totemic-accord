@@ -410,6 +410,7 @@ function Bar:Layout()
 	end
 
 	ns.Flyout:LayoutArrows()
+	ns.Flyout:Close()
 	self:ApplyLock()
 end
 
@@ -718,6 +719,7 @@ local VALID = {
 	layout = { horizontal = true, vertical = true, grid = true },
 	buttonStyle = { initials = true, icons = true },
 	emptySlot = { grey = true, hide = true },
+	flyoutDir = { up = true, down = true, left = true, right = true },
 	actionMode = { auto = true, cote = true, seq = true },
 }
 local RANGES = { scale = { 0.5, 2 }, buttonSpacing = { 0, 8 } }

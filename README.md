@@ -18,7 +18,7 @@ point of this one.
   clean fallback chain: `spec:situation` → `spec:default` → `global` → captured native bar.
   Switches are queued during combat and applied when it ends.
 - **A per-profile castsequence** button that becomes **Call of the Elements** once learned.
-- **Totem chooser** per element (arrow tab or right-click; Blizzard menu) to change the active profile's totem (mouse only — OPie stays
+- **Flyouts** per element to change the active profile's totem (mouse only — OPie stays
   the keyboard flyout).
 - **Five themes** (Emerald, Tokyo Night, Catppuccin Mocha, Catppuccin Latte, Blizzard
   classic), initials-or-icons buttons, three layouts, all switchable without a `/reload`.

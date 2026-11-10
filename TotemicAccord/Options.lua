@@ -322,6 +322,8 @@ local function appearanceTab()
 		buttonStyle = barSelect(2, "buttonStyle", L.OPT_STYLE, { initials = L.OPT_STYLE_INITIALS, icons = L.OPT_STYLE_ICONS }),
 		layout = barSelect(3, "layout", L.OPT_LAYOUT,
 			{ horizontal = L.OPT_LAYOUT_H, vertical = L.OPT_LAYOUT_V, grid = L.OPT_LAYOUT_G }),
+		flyoutDir = barSelect(4, "flyoutDir", L.OPT_FLYOUT,
+			{ up = L.OPT_DIR_UP, down = L.OPT_DIR_DOWN, left = L.OPT_DIR_LEFT, right = L.OPT_DIR_RIGHT }),
 		emptySlot = barSelect(5, "emptySlot", L.OPT_EMPTY, { grey = L.OPT_EMPTY_GREY, hide = L.OPT_EMPTY_HIDE }),
 		actionMode = {
 			type = "select", order = 6, name = L.OPT_ACTION, desc = L.OPT_ACTION_DESC,

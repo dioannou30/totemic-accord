@@ -209,10 +209,7 @@ MenuUtil = { CreateContextMenu = function(owner, generator)
 	function root:CreateTitle(t) table.insert(self.items, { kind = "title", text = t }) end
 	function root:CreateDivider() table.insert(self.items, { kind = "divider" }) end
 	function root:CreateRadio(t, isSel, setSel, data)
-		local item = { kind = "radio", text = t, isSelected = isSel, select = setSel, data = data }
-		function item:SetTooltip(fn) self.tooltip = fn end
-		table.insert(self.items, item)
-		return item
+		table.insert(self.items, { kind = "radio", text = t, isSelected = isSel, select = setSel, data = data })
 	end
 	function root:CreateButton(t, onClick)
 		table.insert(self.items, { kind = "button", text = t, select = onClick })
@@ -953,6 +950,7 @@ step("records readable vs secret spell IDs, in and out of combat", function()
 end)
 
 realPrint("\nFlyouts (M6):")
+local F = ns.Flyout
 local function arrow(n) return btn(n).arrow end
 step("every element has an arrow tab above it (horizontal)", function()
 	B:Set("layout", "horizontal")
@@ -977,56 +975,59 @@ step("a hidden empty element hides its arrow too", function()
 	B:Set("emptySlot", "grey")
 	if before then ns.addon:OnSlashCommand("set water " .. before) end
 end)
-local function radios()
-	local out = {}
-	for _, item in ipairs(scenario.menu or {}) do
-		if item.kind == "radio" then out[#out + 1] = item end
-	end
-	return out
-end
-local function totemRadio(name)
-	for _, r in ipairs(radios()) do
-		if r.text:find(name .. "$") then return r end
-	end
-end
-step("opening shows Blizzard's menu: none + every known totem, current one selected", function()
+step("opening shows none + every known totem, current one ringed", function()
 	ns.addon:OnSlashCommand("set earth SS")
-	scenario.menu = nil
 	arrow("Earth")._scripts.OnClick()
-	assert(scenario.menu and scenario.menu[1].kind == "title" and scenario.menu[1].text == "Earth", "menu not opened")
-	local names, selected = {}, nil
-	for _, r in ipairs(radios()) do
-		local name = r.text:gsub("^|T.-|t ", "")
-		names[#names + 1] = name
-		if r.isSelected() then selected = name end
+	assert(F.frame._shown and F.owner == btn("Earth"))
+	local shown, ringed = {}, nil
+	for _, it in ipairs(F.frame.items) do
+		if it._shown then
+			shown[#shown + 1] = it.text._text
+			if it.ring._shown then ringed = it.text._text end
+		end
 	end
-	assert(table.concat(names, ",") == "None (leave empty),Earthbind Totem,Stoneskin Totem,Strength of Earth Totem",
-		table.concat(names, ","))
-	assert(selected == "Stoneskin Totem", "selected: " .. tostring(selected))
-	assert(totemRadio("Earthbind Totem").tooltip, "totems have no spell tooltip")
+	assert(table.concat(shown, ",") == "-,EB,SS,SE", table.concat(shown, ","))
+	assert(ringed == "SS", "ringed: " .. tostring(ringed))
 end)
 step("picking changes the applied profile and what the button casts", function()
-	totemRadio("Earthbind Totem").select()
+	for _, it in ipairs(F.frame.items) do
+		if it._shown and it.text._text == "EB" then it._scripts.OnClick(it) end
+	end
+	assert(not F.frame._shown, "flyout stayed open")
 	assert(ns.addon.db.global.profiles[P.applied].earth.name == "Earthbind Totem")
 	assert(earthSpell() == "Earthbind Totem")
 end)
 step("picking 'none' empties the element", function()
 	arrow("Earth")._scripts.OnClick()
-	assert(not radios()[1].isSelected())
-	radios()[1].select()
+	F.frame.items[1]._scripts.OnClick(F.frame.items[1])
 	assert(ns.addon.db.global.profiles[P.applied].earth == nil)
 	assert(btn("Earth"):GetAttribute("type") == nil and btn("Earth").text._text == "-")
-	arrow("Earth")._scripts.OnClick()
-	assert(radios()[1].isSelected(), "'none' not selected for an empty element")
 	ns.addon:OnSlashCommand("set earth SS")
+end)
+step("clicking the same arrow again closes it", function()
+	arrow("Fire")._scripts.OnClick()
+	assert(F.frame._shown)
+	arrow("Fire")._scripts.OnClick()
+	assert(not F.frame._shown)
+end)
+step("direction setting places the strip; bad values are rejected", function()
+	for dir, anchor in pairs({ up = "BOTTOM", down = "TOP", left = "RIGHT", right = "LEFT" }) do
+		ns.addon:OnSlashCommand("flyout " .. dir)
+		arrow("Earth")._scripts.OnClick()
+		assert(F.frame._points[1][1] == anchor, dir .. " -> " .. tostring(F.frame._points[1][1]))
+		F:Close()
+	end
+	assert(not B:Set("flyoutDir", "diagonal"))
+	ns.addon:OnSlashCommand("flyout up")
 end)
 step("right-click opens the chooser; left-click and keybinds still cast", function()
 	local earth = btn("Earth")
 	assert(earth:GetAttribute("type2") == "taflyout" and type(earth.taflyout) == "function")
 	assert(earth:GetAttribute("type") == "spell", "left-click no longer casts")
-	scenario.menu = nil
+	F:Close()
 	earth.taflyout(earth) -- what SecureActionButton_OnClick calls for type2
-	assert(scenario.menu and scenario.menu[1].text == "Earth", "chooser not opened")
+	assert(F.frame._shown and F.owner == earth)
+	F:Close()
 	assert(btn("Action"):GetAttribute("type2") == nil, "only elements get the right-click chooser")
 end)
 step("grid: bottom-row tabs sit below the block, top-row tabs above", function()
@@ -1056,18 +1057,18 @@ step("a font change re-sets the text so glyphs redraw", function()
 end)
 step("refuses to open in combat, with a chat message", function()
 	scenario.inCombat = true
-	scenario.menu = nil
 	arrow("Earth")._scripts.OnClick()
-	assert(scenario.menu == nil and lastLine():find("combat"), lastLine())
+	assert(not F.frame._shown and lastLine():find("combat"), lastLine())
 	scenario.inCombat = false
 end)
-step("a pick made after combat starts (menu still open) is refused", function()
+step("entering combat closes an open flyout; a racing pick is refused", function()
 	arrow("Earth")._scripts.OnClick()
-	local item = radios()[2]
+	assert(F.events.PLAYER_REGEN_DISABLED == "Close")
+	local item = F.frame.items[2]
 	scenario.inCombat = true
-	item.select()
+	item._scripts.OnClick(item)
+	assert(not F.frame._shown, "not closed")
 	assert(ns.addon.db.global.profiles[P.applied].earth.name == "Stoneskin Totem", "changed in combat")
-	assert(lastLine():find("combat"), lastLine())
 	scenario.inCombat = false
 end)
 
