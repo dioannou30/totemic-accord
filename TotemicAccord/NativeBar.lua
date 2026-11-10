@@ -149,11 +149,45 @@ function Native:MacroText()
 	return "#showtooltip " .. (Native.CallOfTheElementsName() or "") .. "\n" .. table.concat(lines, "\n")
 end
 
+-- ------------------------------------------------------------------ hiding it
+
+--- The game has no option to hide its totem bar: TotemActionBarMixin:UpdateShownState
+--- shows it whenever an element has totems, and Edit Mode's "Totem Bar" box only shows it
+--- for positioning. So it is reparented to a hidden frame: Blizzard's own SetShown calls
+--- keep working, the bar just never draws. Its action slots, which Call of the Elements
+--- and our sync buttons use, don't depend on the frame being visible. It holds secure
+--- buttons, so SetParent waits for combat to end.
+local hider
+
+function Native:ApplyHidden()
+	local frame = MultiCastActionBarFrame
+	if not frame then
+		return
+	end
+	if InCombatLockdown() then
+		self.hidePending = true
+		return
+	end
+	self.hidePending = nil
+	if db().settings.hideNativeBar then
+		if not hider then
+			hider = CreateFrame("Frame")
+			hider:Hide()
+		end
+		frame:SetParent(hider)
+	elseif hider and frame:GetParent() == hider then
+		frame:SetParent(UIParent) -- its parent in MultiCastActionBarFrame.xml
+	end
+end
+
 -- ------------------------------------------------------------------ wiring
 
 function Native:OnRegenEnabled()
 	if self.pending then
 		self:ApplySync()
+	end
+	if self.hidePending then
+		self:ApplyHidden()
 	end
 end
 
@@ -174,6 +208,7 @@ function Native:Init()
 		self:ApplySync()
 	end
 	self:CaptureIfFirstRun()
+	self:ApplyHidden()
 	self:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 		if not self.sync then
 			self:CreateSyncButtons()

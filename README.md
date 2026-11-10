@@ -72,6 +72,9 @@ Four themes (Emerald, Tokyo Night, Catppuccin Mocha, Blizzard classic), initials
 icons on the buttons, horizontal / vertical / 2×2 grid layouts, scale, button spacing, bar
 background opacity, and vivid initials. Everything applies instantly.
 
+**Hide the default totem bar** (same tab) hides the game's own totem bar. Call of the Elements
+still drops your totems; ticked in combat, it takes effect when combat ends.
+
 ## Slash commands
 
 `/ta` opens the options and `/ta help` lists every command. The most useful ones:

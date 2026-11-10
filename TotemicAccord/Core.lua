@@ -69,6 +69,7 @@ local CHAR_DEFAULTS = {
 			buttonSpacing = 6, -- px between bar buttons (Dio: adjustable 0-8)
 			showProfileLabel = false, -- profile name under the bar (Dio: off)
 			vividInitials = false,
+			hideNativeBar = false, -- hide the game's own totem bar (Dio)
 			debug = false,
 			minimap = { hide = false },
 		},

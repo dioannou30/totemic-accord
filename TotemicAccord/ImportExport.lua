@@ -40,6 +40,7 @@ local SETTING_RULES = {
 	vividInitials = { bool = true },
 	buttonSpacing = { min = 0, max = 8 },
 	showProfileLabel = { bool = true },
+	hideNativeBar = { bool = true },
 }
 
 local function db()

@@ -133,6 +133,12 @@ local function newWidget(name)
 	function methods:Hide() self._shown = false end
 	function methods:SetShown(v) self._shown = not not v end
 	function methods:IsShown() return self._shown end
+	function methods:SetParent(parent)
+		-- Reparenting a frame with secure children is blocked in combat, as in game.
+		assert(not (self._protected and scenario.inCombat), "SetParent on a protected frame in combat")
+		self._parent = parent
+	end
+	function methods:GetParent() return self._parent end
 	function methods:SetScale(v) self._scale = v end
 	function methods:GetEffectiveScale() return 1 end
 	function methods:GetFrameLevel() return self._level end
@@ -171,6 +177,10 @@ local function newWidget(name)
 	end })
 end
 UIParent = newWidget("UIParent")
+-- The game's totem bar: holds secure buttons, so it is protected.
+MultiCastActionBarFrame = newWidget("MultiCastActionBarFrame")
+MultiCastActionBarFrame._parent = UIParent
+MultiCastActionBarFrame._protected = true
 FRAMES = {}
 function CreateFrame(_, name, parent)
 	local f = newWidget(name)
@@ -1563,6 +1573,33 @@ step("when combat ends the real slot data corrects it", function()
 	scenario.activeTotem = {} -- expired during the fight
 	B:OnRegenEnabled()
 	assert(not lit("Earth"), "stale outline after combat")
+end)
+
+realPrint("\nHide the default totem bar:")
+local function nativeHidden()
+	local parent = MultiCastActionBarFrame:GetParent()
+	return parent ~= UIParent and parent ~= nil and not parent:IsShown()
+end
+step("off by default: the game's totem bar keeps its parent", function()
+	assert(MultiCastActionBarFrame:GetParent() == UIParent, "moved without being asked")
+end)
+step("the option hides it by reparenting to a hidden frame, and shows it again", function()
+	local o = opt("appearance", "hideNativeBar")
+	assert(o and o.get() == false, "option missing or not off")
+	o.set(nil, true)
+	assert(nativeHidden(), "not hidden")
+	o.set(nil, false)
+	assert(MultiCastActionBarFrame:GetParent() == UIParent, "not restored to UIParent")
+end)
+step("in combat the change waits until combat ends", function()
+	local o = opt("appearance", "hideNativeBar")
+	scenario.inCombat = true
+	o.set(nil, true)
+	assert(MultiCastActionBarFrame:GetParent() == UIParent, "reparented in combat")
+	scenario.inCombat = false
+	ns.NativeBar:OnRegenEnabled()
+	assert(nativeHidden(), "not applied after combat")
+	o.set(nil, false)
 end)
 
 realPrint("\nRound 3 (spacing, clear keys, Latte):")

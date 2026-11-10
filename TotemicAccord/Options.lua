@@ -369,6 +369,11 @@ local function appearanceTab()
 			get = function() return not settings().minimap.hide end,
 			set = function(_, v) ns.Minimap:SetShown(v) end,
 		},
+		hideNativeBar = {
+			type = "toggle", order = 26, name = L.OPT_HIDE_NATIVE, desc = L.OPT_HIDE_NATIVE_DESC,
+			get = function() return settings().hideNativeBar end,
+			set = function(_, v) settings().hideNativeBar = v; ns.NativeBar:ApplyHidden() end,
+		},
 		profileLabel = {
 			type = "toggle", order = 25, name = L.OPT_LABEL, desc = L.OPT_LABEL_DESC,
 			get = function() return settings().showProfileLabel end,

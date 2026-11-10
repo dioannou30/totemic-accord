@@ -269,6 +269,8 @@ L.OPT_CREATE = "Create"
 L.OPT_EXISTS = "Already exists"
 L.OPT_CREATE_DESC = "Create this profile from the totems the bar shows right now."
 L.OPT_LABEL = "Profile name label"
+L.OPT_HIDE_NATIVE = "Hide the default totem bar"
+L.OPT_HIDE_NATIVE_DESC = "Hide the game's own totem bar. Call of the Elements still uses its totems. In combat this waits until combat ends."
 L.OPT_LABEL_DESC = "Show the active profile's name below the bar. The Profile button's code and tooltip show it too."
 L.KEYS_REPLACED = "%s was bound to '%s' - it now casts the Totemic Accord button."
 
