@@ -44,26 +44,3 @@ Both are SIL Open Font License, so they can ship with the addon. `OFL.txt` is ke
 
 Note: Manrope is at `googlefonts/manrope`; the older `sharanda/manrope` URL is gone (404).
 
-## Private forks (renamed copies — not shared with other addons)
-
-| Fork | From | Why |
-|---|---|---|
-| `TotemicAccordGUI/` (`TotemicAccordGUI-1.0`) | AceGUI-3.0 minor 41, Ace3 `Release-r1403` | Themed options window |
-| `TotemicAccordConfigDialog/` (`TotemicAccordConfigDialog-1.0`) | AceConfigDialog-3.0 minor 92, same release | Draws the window with the forked GUI |
-
-The shared AceGUI-3.0 is loaded by several addons on this install (Questie, RareScanner,
-OpenMap — all minor 41), and it **recycles widgets between addons**, so restyling it would
-leak our theme into their windows. The forks are byte-for-byte Ace3 r1403 except for a
-mechanical rename: the LibStub names above, and every global frame-name prefix
-(`AceGUI30…` → `TotemicAccordGUI30…`, `AceGUI-3.0EditBox` → `TotemicAccordGUIEditBox`,
-`AceGUITabGroup…`, `AceGUITooltip`, `AceConfigDialog{ScrollFrame,TreeGroup,Tooltip}…`) so the
-two copies never collide. Theming lives in `TotemicAccord/OptionsSkin.lua`. Two layout constants in the fork differ
-from Ace3, each marked `TotemicAccord:` in the source — re-apply them when re-forking:
-- `TotemicAccordGUI.lua`, Flow layout: 10px between widgets and between rows (Ace3: 0 and 3).
-- `widgets/AceGUIWidget-DropDown.lua`, pullout: 4px insets and `items + 18` height (Ace3: 12px
-  and `+ 34`), sized for the flat 1px border; less than +18 shows a scrollbar for one item.
-- `widgets/AceGUIWidget-CheckBox.lua`: 8px between box and text in `AlignImage` and the
-  mouse-down handler (Ace3: 0-2px), because Ace re-anchors the text on every click.
-`tools/gui_layout_test.lua` checks the Flow spacing. Licence: Ace3's
-(`Ace3-LICENSE.txt`). The forked dialog still uses the shared `AceConfigRegistry-3.0` (pure
-data), so both dialogs show the same options.

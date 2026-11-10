@@ -211,6 +211,9 @@ MenuUtil = { CreateContextMenu = function(owner, generator)
 	function root:CreateRadio(t, isSel, setSel, data)
 		table.insert(self.items, { kind = "radio", text = t, isSelected = isSel, select = setSel, data = data })
 	end
+	function root:CreateButton(t, onClick)
+		table.insert(self.items, { kind = "button", text = t, select = onClick })
+	end
 	generator(owner, root)
 	scenario.menu = root.items
 end }
@@ -296,7 +299,6 @@ LibStub = setmetatable({
 			["AceConfigRegistry-3.0"] = true, ["AceConfigDialog-3.0"] = true,
 			["AceGUI-3.0"] = true, ["LibSerialize"] = true, ["LibDeflate"] = true,
 			["LibDataBroker-1.1"] = true, ["LibDBIcon-1.0"] = true,
-			["TotemicAccordGUI-1.0"] = true, ["TotemicAccordConfigDialog-1.0"] = true,
 		}
 		if known[name] then return registered[name] or {} end
 		if silent then return nil end
@@ -359,11 +361,6 @@ registered["AceConfigDialog-3.0"] = {
 }
 scenario.notified = 0
 registered["AceConfigRegistry-3.0"] = { NotifyChange = function() scenario.notified = scenario.notified + 1 end }
--- The private themed dialog behaves like the shared one; its GUI creates widgets the
--- skin can be checked against.
-registered["TotemicAccordConfigDialog-1.0"] = registered["AceConfigDialog-3.0"]
-registered["TotemicAccordGUI-1.0"] = { Create = function(_, widgetType) return scenario.makeWidget(widgetType) end }
-scenario.makeWidget = function(widgetType) return { type = widgetType } end
 registered["LibDataBroker-1.1"] = { NewDataObject = function(_, name, obj) scenario.broker = obj; return obj end }
 registered["LibDBIcon-1.0"] = {
 	Register = function(_, name, obj, db) scenario.dbicon = { name = name, obj = obj, db = db } end,
@@ -412,7 +409,7 @@ step("locale fallback returns key for a missing string", function()
 end)
 step("load Core.lua", function() loadFile("Core.lua") end)
 step("load Data.lua", function() loadFile("Data.lua") end)
-for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "OptionsSkin.lua", "Options.lua", "Minimap.lua" }) do
+for _, f in ipairs({ "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "Options.lua", "Minimap.lua" }) do
 	step("load " .. f, function() loadFile(f) end)
 end
 step("load SelfTest.lua", function() loadFile("SelfTest.lua") end)
@@ -899,52 +896,27 @@ step("on-screen message can be turned off; the chat line stays", function()
 	ns.addon:OnSlashCommand("message on")
 	P.Flash = realFlash
 end)
-local function menuRows()
-	local rows = {}
-	for _, r in ipairs(ns.Menu.frame.rows) do
-		if r._shown then rows[#rows + 1] = r end
+local function menuItem(text)
+	for _, item in ipairs(scenario.menu or {}) do
+		if item.text == text then return item end
 	end
-	return rows
 end
-step("Profile button opens the themed chooser; picking pins, Auto unpins", function()
+step("Profile button opens Blizzard's context menu; picking pins, Auto unpins", function()
+	scenario.menu = nil
 	btn("Profile")._scripts.OnClick(btn("Profile"))
-	local rows = menuRows()
-	assert(ns.Menu.frame._shown and rows[1].entry.text:find("^Auto %(currently: "), rows[1].entry.text)
-	assert(rows[1].entry.checked, "Auto should be checked while not pinned")
-	local pick
-	for _, r in ipairs(rows) do
-		if r.entry.kind == "item" and r.entry.text == "Global · Dungeon" then pick = r end
-	end
-	assert(pick, "Global · Dungeon not offered")
-	pick._scripts.OnClick(pick)
-	assert(not ns.Menu.frame._shown, "menu stayed open")
+	local m = scenario.menu
+	assert(m and m[1].kind == "title", "MenuUtil menu not opened")
+	assert(m[2].kind == "radio" and m[2].text:find("^Auto %(currently: "), m[2] and m[2].text)
+	assert(m[2].isSelected(), "Auto should be selected while not pinned")
+	local pick = menuItem("Global · Dungeon")
+	assert(pick and pick.kind == "radio", "Global · Dungeon not offered")
+	assert(not pick.isSelected())
+	pick.select()
 	assert(G.manual == "global:dungeon" and P.applied == "global:dungeon")
 	btn("Profile")._scripts.OnClick(btn("Profile"))
-	rows = menuRows()
-	rows[1]._scripts.OnClick(rows[1])
+	assert(menuItem("Global · Dungeon").isSelected(), "pinned profile not shown as selected")
+	scenario.menu[2].select()
 	assert(G.manual == nil)
-end)
-step("the chooser uses the theme: panel, border, accent for the selected entry", function()
-	ns.Themes:Set("mocha")
-	btn("Profile")._scripts.OnClick(btn("Profile"))
-	local t = ns.Themes:Current()
-	local panel, accent = { ns.Themes.RGB(t.panel) }, { ns.Themes.RGB(t.accent) }
-	assert(ns.Menu.frame.bg._color[1] == panel[1] and ns.Menu.frame.bg._color[3] == panel[3], "panel colour")
-	local c = menuRows()[1].text._textColor
-	assert(c[1] == accent[1] and c[2] == accent[2], "selected entry not in accent colour")
-	ns.Menu:Close()
-	ns.Themes:Set("emerald")
-end)
-step("the chooser closes on a second click and on a click elsewhere", function()
-	local pb = btn("Profile")
-	pb._scripts.OnClick(pb)
-	pb._scripts.OnClick(pb)
-	assert(not ns.Menu.frame._shown, "second click should close")
-	pb._scripts.OnClick(pb)
-	assert(ns.Menu.events.GLOBAL_MOUSE_DOWN, "not listening for outside clicks")
-	ns.Menu:OnGlobalMouseDown() -- the fake IsMouseOver is false: a click elsewhere
-	assert(not ns.Menu.frame._shown and ns.Menu.events.GLOBAL_MOUSE_DOWN == nil)
-	assert(UISpecialFrames[1] == "TotemicAccordMenu", "Escape won't close it")
 end)
 step("deleting the pinned profile unpins and falls back", function()
 	ns.addon:OnSlashCommand("profile global:dungeon")
@@ -1446,15 +1418,15 @@ step("loadout profiles are matched to the importer's loadouts by NAME", function
 	assert(result.profiles["L102:dungeon"], "Resto should map to this character's 102")
 	assert(result.count == 1 and result.skipped == 1, result.count .. "/" .. result.skipped)
 end)
-step("minimap: left opens options, right opens the themed menu, shift-left locks", function()
+step("minimap: left opens options, right opens the profile menu, shift-left locks", function()
 	assert(scenario.dbicon and scenario.dbicon.db == G.settings.minimap, "LibDBIcon not registered")
 	local onClick = scenario.broker.OnClick
 	scenario.optionsOpened = nil
 	onClick(UIParent, "LeftButton")
 	assert(scenario.optionsOpened == "TotemicAccord")
+	scenario.menu = nil
 	onClick(UIParent, "RightButton")
-	assert(ns.Menu.frame._shown, "profile menu not opened")
-	ns.Menu:Close()
+	assert(scenario.menu and scenario.menu[2].text:find("^Auto"), "profile menu not opened")
 	local was = G.settings.locked
 	scenario.shift = true
 	onClick(UIParent, "LeftButton")
@@ -1520,50 +1492,11 @@ step("per-button key capture: bind, replace (with a note), clear, refused in com
 end)
 step("the profile menu has 'Edit profiles...', opening the options on that tab", function()
 	btn("Profile")._scripts.OnClick(btn("Profile"))
-	local rows = menuRows()
-	local last = rows[#rows]
-	assert(last.entry.text == "Edit profiles...", last.entry.text)
+	local last = scenario.menu[#scenario.menu]
+	assert(last.kind == "button" and last.text == "Edit profiles...", last.text)
 	scenario.optionsOpened, scenario.optionsTab = nil, nil
-	last._scripts.OnClick(last)
+	last.select()
 	assert(scenario.optionsOpened == "TotemicAccord" and scenario.optionsTab == "profiles")
-end)
-realPrint("\nThemed options window (private AceGUI copy):")
-local PGUI = LibStub("TotemicAccordGUI-1.0")
-step("widgets created by OUR GUI copy are drawn in the theme", function()
-	scenario.makeWidget = function(t) return { type = t, frame = newWidget() } end
-	local w = PGUI:Create("Button")
-	local want = { ns.Themes.RGB(ns.Themes:Current().button) }
-	assert(w.frame.taFace and w.frame.taFace.bg._color[1] == want[1], "button face not themed")
-end)
-step("a theme switch re-skins live widgets", function()
-	local w = PGUI:Create("Button")
-	ns.Themes:Set("mocha")
-	local mocha = { ns.Themes.RGB(ns.Themes:Current().button) }
-	assert(w.frame.taFace.bg._color[1] == mocha[1], "not re-skinned on theme change")
-	ns.Themes:Set("emerald")
-end)
-step("disabling a widget re-applies the skin (muted text)", function()
-	local fs = newWidget()
-	scenario.makeWidget = function(t)
-		local w = { type = t, frame = newWidget(), checkbg = newWidget(), check = newWidget(), text = fs }
-		function w:SetDisabled(d) self.disabled = d; self.text:SetTextColor(1, 1, 1) end -- what AceGUI does
-		return w
-	end
-	local w = PGUI:Create("CheckBox")
-	w:SetDisabled(true)
-	local muted = { ns.Themes.RGB(ns.Themes:Current().muted) }
-	assert(fs._textColor[1] == muted[1], "disabled text not muted after SetDisabled")
-end)
-step("a widget missing regions can't break the window (skin errors are contained)", function()
-	scenario.makeWidget = function(t) return { type = t } end -- no frame at all
-	local w = PGUI:Create("Slider")
-	assert(w and w.type == "Slider")
-end)
-step("the SHARED AceGUI used by Questie & co. is never touched", function()
-	local shared = LibStub("AceGUI-3.0")
-	assert(rawget(shared, "Create") == nil, "skin wrapped the shared library")
-	assert(LibStub("TotemicAccordConfigDialog-1.0") ~= nil)
-	scenario.makeWidget = function(t) return { type = t } end
 end)
 realPrint("\nRound 3 (spacing, clear keys, Latte):")
 step("button spacing 0-8 moves the buttons; out of range is refused", function()
@@ -1626,7 +1559,7 @@ scenario.class = "WARRIOR"
 local ns2 = {}
 local addon2
 step("load + OnInitialize as a Warrior", function()
-	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Menu.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "OptionsSkin.lua", "Options.lua", "Minimap.lua", "SelfTest.lua" }) do
+	for _, f in ipairs({ "Locales/enUS.lua", "Core.lua", "Data.lua", "Themes.lua", "Keybinds.lua", "Bar.lua", "Flyout.lua", "Sequence.lua", "Profiles.lua", "NativeBar.lua", "ImportExport.lua", "Options.lua", "Minimap.lua", "SelfTest.lua" }) do
 		local chunk = assert(loadfile(repo .. "/TotemicAccord/" .. f))
 		chunk(ADDON, ns2)
 	end

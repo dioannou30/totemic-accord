@@ -27,13 +27,11 @@ Data.lua
 Themes.lua
 Keybinds.lua
 Bar.lua
-Menu.lua
 Flyout.lua
 Sequence.lua
 Profiles.lua
 NativeBar.lua
 ImportExport.lua
-OptionsSkin.lua
 Options.lua
 Minimap.lua
 SelfTest.lua

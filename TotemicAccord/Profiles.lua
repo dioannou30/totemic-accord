@@ -432,7 +432,7 @@ end
 -- ------------------------------------------------------------------ chooser menu
 
 --- Menu entries: "Auto (currently: X)", then profiles grouped General / per loadout,
---- then the captured native bar. Drawn by Menu.lua in the bar's theme.
+--- then the captured native bar, then "Edit profiles...". Drawn by Blizzard's MenuUtil.
 function Profiles:MenuEntries()
 	local manual = db().manual
 	local entries = {
@@ -475,8 +475,24 @@ function Profiles:MenuEntries()
 	return entries
 end
 
+--- Blizzard's standard context menu (Dio preferred it to the themed popup).
 function Profiles:OpenMenu(owner)
-	ns.Menu:Toggle(owner, self:MenuEntries())
+	local entries = self:MenuEntries()
+	MenuUtil.CreateContextMenu(owner, function(_, root)
+		root:CreateTitle(L.MENU_TITLE)
+		for _, e in ipairs(entries) do
+			if e.kind == "title" then
+				root:CreateDivider()
+				root:CreateTitle(e.text)
+			elseif e.kind == "divider" then
+				root:CreateDivider()
+			elseif e.checked ~= nil then
+				root:CreateRadio(e.text, function() return e.checked end, e.onClick)
+			else
+				root:CreateButton(e.text, e.onClick)
+			end
+		end
+	end)
 end
 
 -- ------------------------------------------------------------------ wiring

@@ -3,7 +3,7 @@
 	addon compartment entry.
 
 	  Left-click        open the options window
-	  Right-click       the profile chooser (the same themed menu as the bar's button)
+	  Right-click       the profile chooser (the same menu as the bar's Profile button)
 	  Shift+Left-click  lock / unlock the bar
 
 	The addon compartment (Blizzard's addon dropdown on the minimap) calls the global

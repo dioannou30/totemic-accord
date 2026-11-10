@@ -15,15 +15,6 @@
 	<Include file="AceGUI-3.0\AceGUI-3.0.xml"/>
 	<Include file="AceConfig-3.0\AceConfig-3.0.xml"/>
 
-	<!--
-		Private, renamed copies of AceGUI-3.0 and AceConfigDialog-3.0 (see VERSIONS.md).
-		The shared AceGUI is used by other addons (Questie, RareScanner, OpenMap here) and
-		recycles widgets between them, so theming it would leak into their windows. Our
-		copy has its own name, widget pool and frame names, and is themed freely.
-	-->
-	<Include file="TotemicAccordGUI\TotemicAccordGUI.xml"/>
-	<Script file="TotemicAccordConfigDialog\TotemicAccordConfigDialog.lua"/>
-
 	<Script file="LibDataBroker-1.1\LibDataBroker-1.1.lua"/>
 	<Include file="LibDBIcon-1.0\lib.xml"/>
 

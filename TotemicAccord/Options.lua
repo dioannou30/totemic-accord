@@ -12,9 +12,8 @@
 	  Appearance & keys   every bar setting, the minimap button, suggested keybinds
 	  Import / Export     TA1: strings
 
-	AceConfig was chosen over a hand-built themed window (Dio's call). The standalone
-	window is drawn by a private, themed copy of AceConfigDialog/AceGUI (OptionsSkin.lua);
-	the game's Options > AddOns panel uses the shared, Blizzard-styled one.
+	AceConfig was chosen over a hand-built themed window (Dio's call). It draws in
+	Blizzard's style (a themed private copy was tried and dropped at Dio's request).
 
 	Every setter goes through the module that owns the setting, so combat queueing and
 	validation behave exactly as with the slash commands.
@@ -27,9 +26,7 @@ local Options = {}
 ns.Options = Options
 
 local AceConfig = LibStub("AceConfig-3.0")
-local AceConfigDialog = LibStub("AceConfigDialog-3.0") -- shared: the game's AddOns panel
--- Our private, themed copy draws the standalone window (/ta). See OptionsSkin.lua.
-local ThemedDialog = LibStub("TotemicAccordConfigDialog-1.0")
+local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 
 local function g()
@@ -442,8 +439,7 @@ end
 
 function Options:Init()
 	AceConfig:RegisterOptionsTable(ADDON, function() return Options:Build() end)
-	ns.OptionsSkin:Init()
-	ThemedDialog:SetDefaultSize(ADDON, 720, 600)
+	AceConfigDialog:SetDefaultSize(ADDON, 720, 600)
 	-- Also listed in the game's Options > AddOns.
 	AceConfigDialog:AddToBlizOptions(ADDON, ns.addon.DISPLAY_NAME)
 	self.registered = true
@@ -457,9 +453,9 @@ function Options:Open(tab)
 		self.editCol = ns.Profiles:CurrentSituation()
 		self.opened = true
 	end
-	ThemedDialog:Open(ADDON)
+	AceConfigDialog:Open(ADDON)
 	if tab then
-		ThemedDialog:SelectGroup(ADDON, tab)
+		AceConfigDialog:SelectGroup(ADDON, tab)
 	end
 end
 
