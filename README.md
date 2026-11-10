@@ -32,7 +32,7 @@ right set on its own. One key drops them all.
 ## Installing
 
 1. Download `TotemicAccord-0.9.0.zip` from the
-   [Releases](https://github.com/dioannou30/totemic-arrord/releases) page.
+   [Releases](https://github.com/dioannou30/totemic-accord/releases) page.
    Don't use GitHub's green **Code → Download ZIP** button: that gives you the whole project,
    not the addon folder.
 2. Extract it so the folder lands at
